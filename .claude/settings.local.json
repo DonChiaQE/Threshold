@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:www.createwithswift.com)",
+      "WebFetch(domain:getstream.io)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:blog.nativescript.org)",
+      "WebFetch(domain:mitemmetim.medium.com)",
+      "WebFetch(domain:www.oskarkwasniewski.dev)",
+      "WebFetch(domain:gist.github.com)"
+    ]
+  }
+}
