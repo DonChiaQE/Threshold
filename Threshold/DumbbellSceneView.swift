@@ -12,6 +12,11 @@
 //    2. Look at the dot and pinch (Vision Pro native gesture) to stamp the position.
 //    3. A block appears above the mark.
 //    4. Look up at the panel and tap "Drop" – the block falls beside the mark.
+//    5. A green Safety Glow expands around the foot after the miss.
+//
+//  Graded Exposure Slider:
+//    Drag the slider to set an exposure level (1–10) before dropping.
+//    Level 1 = gentle (slow, far miss). Level 10 = intense (fast, close miss).
 //
 
 import SwiftUI
@@ -64,6 +69,48 @@ private final class ThudAudioPlayer: @unchecked Sendable {
     }
 }
 
+// MARK: - Exposure Slider panel
+
+/// Compact floating panel displayed below the main controls.
+/// Allows the user to dial in their therapeutic exposure level before each drop.
+private struct ExposureSlider: View {
+
+    @Binding var level: Double
+
+    private var levelLabel: String {
+        switch Int(level) {
+        case 1...2:  "Gentle"
+        case 3...4:  "Moderate"
+        default:     "Intense"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Exposure Level")
+                    .font(.caption.bold())
+                Spacer()
+                Text("\(levelLabel)  (\(Int(level)) / 6)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: $level, in: 1...6, step: 1)
+                .tint(.orange)
+            HStack {
+                Text("Slow / Far")
+                Spacer()
+                Text("Fast / Close")
+            }
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+        }
+        .padding(16)
+        .frame(width: 380)
+        .glassBackgroundEffect()
+    }
+}
+
 // MARK: - Scene view
 
 struct DumbbellSceneView: View {
@@ -79,19 +126,31 @@ struct DumbbellSceneView: View {
     @State private var markerEntity:  ModelEntity?
     @State private var markedPosition: SIMD3<Float>?
     @State private var hasDropped    = false
+    @State private var exposureLevel: Double = 5.0
 
     // Audio – kept alive for the full scene lifetime
     @State private var thudPlayer    = ThudAudioPlayer()
 
     private var isMarked: Bool { markedPosition != nil }
 
+    // MARK: - Computed exposure parameters
+
+    /// Drop duration in seconds.
+    /// Ranges from 2.0 s (level 1, gentle) to 0.4 s (level 6, intense).
+    private var dropDuration: TimeInterval {
+        2.0 - (exposureLevel - 1.0) * (1.6 / 5.0)
+    }
+
+    /// Lateral near-miss offset from the marked foot position in metres.
+    /// Ranges from 0.20 m (level 1) to 0.10 m (level 6).
+    private var nearMissOffset: Float {
+        Float(0.20 - (exposureLevel - 1.0) * (0.10 / 5.0))
+    }
+
     // MARK: - Constants
 
-    /// 30 cm offset ensures the block clearly lands beside – not on – the foot.
-    private let nearMissOffset: Float  = 0.30
     private let startHeight: Float     = 1.5
     private let cubeSize: Float        = 0.10
-    private let dropDuration: TimeInterval = 0.8
 
     // MARK: - ARKit
 
@@ -110,20 +169,25 @@ struct DumbbellSceneView: View {
             reticleEntity = reticle
 
             if let panel = attachments.entity(for: "controls") {
-                panel.position = [0, 1.5, -1.2]
+                panel.position = [0, 1.6, -1.2]
                 content.add(panel)
             }
         } attachments: {
             Attachment(id: "controls") {
-                SceneControlPanel(
-                    sceneName: "Dumbbell (Foot)",
-                    instruction: instructionText,
-                    isReady: isMarked && !hasDropped,
-                    hasDropped: hasDropped,
-                    onDrop: dropCube,
-                    onReset: resetScene,
-                    onReturn: { await dismissImmersiveSpace() }
-                )
+                VStack(spacing: 12) {
+                    SceneControlPanel(
+                        sceneName: "Dumbbell (Foot)",
+                        instruction: instructionText,
+                        isReady: isMarked && !hasDropped,
+                        hasDropped: hasDropped,
+                        onDrop: dropCube,
+                        onReset: resetScene,
+                        onReturn: { await dismissImmersiveSpace() }
+                    )
+                    if !hasDropped {
+                        ExposureSlider(level: $exposureLevel)
+                    }
+                }
             }
         }
         // Pinch on the yellow reticle to mark foot position
@@ -143,7 +207,7 @@ struct DumbbellSceneView: View {
         if !isMarked {
             return "Look at the yellow dot near your foot, then pinch to mark the spot."
         }
-        if hasDropped { return "The block missed the marked spot." }
+        if hasDropped { return "Safe – the block missed your foot." }
         return "Foot position marked. Look up and tap Drop."
     }
 
@@ -222,16 +286,35 @@ struct DumbbellSceneView: View {
         guard let cube = cubeEntity, let pos = markedPosition else { return }
         hasDropped = true
 
-        let target = SIMD3<Float>(pos.x + nearMissOffset, cubeSize / 2, pos.z)
+        // Capture computed values now – the async closure reads these after a delay
+        let currentOffset   = nearMissOffset
+        let currentDuration = dropDuration
+        let footPos         = pos
+        let localRoot       = rootEntity
+        let player          = thudPlayer
+
+        let target = SIMD3<Float>(pos.x + currentOffset, cubeSize / 2, pos.z)
         var dropTransform = cube.transform
         dropTransform.translation = target
-        cube.move(to: dropTransform, relativeTo: rootEntity, duration: dropDuration, timingFunction: .easeIn)
+        cube.move(to: dropTransform, relativeTo: rootEntity, duration: currentDuration, timingFunction: .easeIn)
 
-        // Fire spatial thud exactly when the block reaches the floor
-        let landingPos = target
+        // Fire spatial thud and expand safety glow exactly when block reaches the floor
         Task {
-            try? await Task.sleep(nanoseconds: UInt64(dropDuration * 1_000_000_000))
-            thudPlayer.play(at: landingPos)
+            try? await Task.sleep(nanoseconds: UInt64(currentDuration * 1_000_000_000))
+            player.play(at: target)
+
+            // Safety Glow: a calming green disc expands around the foot mark
+            let glowMesh     = MeshResource.generateCylinder(height: 0.003, radius: 0.18)
+            let glowMaterial = SimpleMaterial(color: .systemGreen, roughness: 0.8, isMetallic: false)
+            let glow         = ModelEntity(mesh: glowMesh, materials: [glowMaterial])
+            glow.name        = "safetyGlow"
+            glow.position    = SIMD3<Float>(footPos.x, 0.002, footPos.z)
+            glow.scale       = SIMD3<Float>(0.01, 1.0, 0.01)
+            localRoot.addChild(glow)
+
+            var fullTransform = glow.transform
+            fullTransform.scale = SIMD3<Float>(1.0, 1.0, 1.0)
+            glow.move(to: fullTransform, relativeTo: localRoot, duration: 0.6, timingFunction: .easeOut)
         }
     }
 
@@ -240,6 +323,7 @@ struct DumbbellSceneView: View {
         cubeEntity = nil
         markerEntity?.removeFromParent()
         markerEntity = nil
+        rootEntity.children.first(where: { $0.name == "safetyGlow" })?.removeFromParent()
         markedPosition = nil
         hasDropped = false
         reticleEntity?.isEnabled = true
