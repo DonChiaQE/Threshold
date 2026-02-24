@@ -8,7 +8,8 @@
       "WebFetch(domain:blog.nativescript.org)",
       "WebFetch(domain:mitemmetim.medium.com)",
       "WebFetch(domain:www.oskarkwasniewski.dev)",
-      "WebFetch(domain:gist.github.com)"
+      "WebFetch(domain:gist.github.com)",
+      "Bash(cd:*)"
     ]
   }
 }
