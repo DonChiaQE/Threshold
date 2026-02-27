@@ -20,6 +20,9 @@ class AppModel {
         case smoke = "SmokeScene"
         case hammer = "HammerScene"
         case dumbbell = "DumbbellScene"
+        case protectometerLab = "ProtectometerLabScene"
+        case gloves = "gloves"
+        case cactus = "cactus"
 
         var id: String { rawValue }
 
@@ -29,6 +32,9 @@ class AppModel {
             case .smoke: "Smoke"
             case .hammer: "Hammer (Arm)"
             case .dumbbell: "Dumbbell (Foot)"
+            case .protectometerLab: "Protectometer Lab"
+            case .gloves: "The Glove"
+            case .cactus: "The Cactus"
             }
         }
 
@@ -38,6 +44,9 @@ class AppModel {
             case .smoke: "Smoke fills the space around you. An environmental threat scenario."
             case .hammer: "Uses hand tracking to position a near-miss drop beside your arm."
             case .dumbbell: "Mark your foot position with gaze, then watch a near-miss drop."
+            case .protectometerLab: "Drag DIM and SIM cards onto the Protectometer to explore how the brain weighs danger and safety."
+            case .gloves: "Your brain predicts danger from a worn glove."
+            case .cactus: "Hurt does not equal harm."
             }
         }
 
@@ -47,6 +56,9 @@ class AppModel {
             case .smoke: "smoke.fill"
             case .hammer: "hammer.fill"
             case .dumbbell: "dumbbell.fill"
+            case .protectometerLab: "gauge.with.needle.fill"
+            case .gloves: "hand.raised.fill"
+            case .cactus: "leaf.fill"
             }
         }
     }
