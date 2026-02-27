@@ -167,8 +167,17 @@ struct CactusSceneView: View {
         for await update in handTracking.anchorUpdates {
             let anchor = update.anchor
             guard anchor.chirality == .right, anchor.isTracked else { continue }
-            guard !hasTriggered else { continue }
             guard let skeleton = anchor.handSkeleton else { continue }
+
+            // Always update glove position — runs even after trigger fires
+            let wristJoint = skeleton.joint(.wrist)
+            if wristJoint.isTracked {
+                let worldWristMatrix = anchor.originFromAnchorTransform * wristJoint.anchorFromJointTransform
+                gloveEntity?.setTransformMatrix(worldWristMatrix, relativeTo: nil)
+            }
+
+            // Proximity check only needed before trigger
+            guard !hasTriggered else { continue }
 
             for jointName in tipJoints {
                 let joint = skeleton.joint(jointName)
