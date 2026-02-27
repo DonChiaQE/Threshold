@@ -96,11 +96,11 @@ struct GlovesSceneView: View {
             let wristJoint = skeleton.joint(.wrist)
             guard wristJoint.isTracked else { continue }
 
+            isTracking = true
+
             // Compute wrist world-space transform:
             // originFromAnchorTransform × anchorFromJointTransform
             let worldWristMatrix = anchor.originFromAnchorTransform * wristJoint.anchorFromJointTransform
-
-            isTracking = true
 
             // Attach glove to wrist position in world space
             gloveEntity?.setTransformMatrix(worldWristMatrix, relativeTo: nil)
