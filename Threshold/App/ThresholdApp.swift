@@ -67,5 +67,41 @@ struct ThresholdApp: App {
                 }
         }
         .immersionStyle(selection: .constant(.mixed), in: .mixed)
+
+        // Protectometer Lab – fully immersive office environment
+        ImmersiveSpace(id: AppModel.SceneType.protectometerLab.rawValue) {
+            ProtectometerLabSceneView()
+                .environment(appModel)
+                .onAppear { appModel.immersiveSpaceState = .open }
+                .onDisappear {
+                    appModel.immersiveSpaceState = .closed
+                    appModel.activeScene = nil
+                }
+        }
+        .immersionStyle(selection: .constant(.full), in: .full)
+
+        // Gloves – wrist-following glove hand tracking scene
+        ImmersiveSpace(id: AppModel.SceneType.gloves.rawValue) {
+            GlovesSceneView()
+                .environment(appModel)
+                .onAppear { appModel.immersiveSpaceState = .open }
+                .onDisappear {
+                    appModel.immersiveSpaceState = .closed
+                    appModel.activeScene = nil
+                }
+        }
+        .immersionStyle(selection: .constant(.mixed), in: .mixed)
+
+        // Cactus – proximity threat/reappraisal sequence
+        ImmersiveSpace(id: AppModel.SceneType.cactus.rawValue) {
+            CactusSceneView()
+                .environment(appModel)
+                .onAppear { appModel.immersiveSpaceState = .open }
+                .onDisappear {
+                    appModel.immersiveSpaceState = .closed
+                    appModel.activeScene = nil
+                }
+        }
+        .immersionStyle(selection: .constant(.mixed), in: .mixed)
     }
 }
