@@ -246,9 +246,9 @@ struct CactusSceneView: View {
         }
     }
 
-    private func setGlowAlpha(_ alpha: CGFloat, on entity: ModelEntity, color: UIColor) {
+    private func setGlowAlpha(_ alpha: CGFloat, on entity: ModelEntity, baseColor: UIColor) {
         let material = SimpleMaterial(
-            color: color.withAlphaComponent(alpha),
+            color: baseColor.withAlphaComponent(alpha),
             roughness: 1.0,
             isMetallic: false
         )
