@@ -75,13 +75,11 @@ struct CactusSceneView: View {
                 panel.position = [0, 1.5, -1.2]
                 content.add(panel)
             }
-        } update: { (content: inout RealityViewContent, attachments: RealityViewAttachments) in
-            // Show/hide the safe label attachment based on state
-            if showSafeLabel {
-                if let label = attachments.entity(for: "safeLabel") {
-                    label.position = [0, 1.3, -0.6]
-                    content.add(label)
-                }
+
+            // Safe label — always present, opacity driven by showSafeLabel state
+            if let label = attachments.entity(for: "safeLabel") {
+                label.position = [0, 1.3, -0.6]
+                content.add(label)
             }
         } attachments: {
             Attachment(id: "controls") {
@@ -98,15 +96,14 @@ struct CactusSceneView: View {
             }
 
             Attachment(id: "safeLabel") {
-                if showSafeLabel {
-                    Text("Your skin is safe.\nYour brain just predicted danger.")
-                        .font(.title3.bold())
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(20)
-                        .frame(maxWidth: 320)
-                        .glassBackgroundEffect()
-                }
+                Text("Your skin is safe.\nYour brain just predicted danger.")
+                    .font(.title3.bold())
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(20)
+                    .frame(maxWidth: 320)
+                    .glassBackgroundEffect()
+                    .opacity(showSafeLabel ? 1 : 0)
             }
         }
         .task {
@@ -259,8 +256,12 @@ struct CactusSceneView: View {
 
     private func resetScene() {
         // Clear glow entities to fully transparent
-        setGlowAlpha(0, on: redGlowEntity!, baseColor: UIColor.red)
-        setGlowAlpha(0, on: greenGlowEntity!, baseColor: UIColor(red: 0.2, green: 0.9, blue: 0.4, alpha: 1.0))
+        if let red = redGlowEntity {
+            setGlowAlpha(0, on: red, baseColor: UIColor.red)
+        }
+        if let green = greenGlowEntity {
+            setGlowAlpha(0, on: green, baseColor: UIColor(red: 0.2, green: 0.9, blue: 0.4, alpha: 1.0))
+        }
         showSafeLabel = false
         hasTriggered = false
     }
