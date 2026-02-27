@@ -67,16 +67,18 @@ struct CactusSceneView: View {
                 // Glove load failure is non-fatal; scene still works without it
             }
 
-            // Pre-build invisible glow spheres (opacity set at runtime)
-            let redGlow = makeGlowSphere(color: UIColor.red.withAlphaComponent(0.0))
+            // Pre-build glow spheres — hidden until triggered
+            let redGlow = makeGlowSphere(color: UIColor.red.withAlphaComponent(0.6))
             redGlow.position = cactusPosition
+            redGlow.isEnabled = false
             rootEntity.addChild(redGlow)
             redGlowEntity = redGlow
 
             let greenGlow = makeGlowSphere(
-                color: UIColor(red: 0.2, green: 0.9, blue: 0.4, alpha: 0.0)
+                color: UIColor(red: 0.2, green: 0.9, blue: 0.4, alpha: 0.5)
             )
             greenGlow.position = cactusPosition
+            greenGlow.isEnabled = false
             rootEntity.addChild(greenGlow)
             greenGlowEntity = greenGlow
 
@@ -96,10 +98,10 @@ struct CactusSceneView: View {
                 SceneControlPanel(
                     sceneName: "The Cactus",
                     instruction: instructionText,
-                    isReady: !hasTriggered,
+                    isReady: false,
                     hasDropped: hasTriggered,
                     resetLabel: "Reset",
-                    onDrop: triggerSequence,      // also manually triggerable
+                    onDrop: { },
                     onReset: resetScene,
                     onReturn: { await dismissImmersiveSpace() }
                 )
@@ -228,59 +230,25 @@ struct CactusSceneView: View {
 
     // MARK: - Glow Animations
 
-    /// Fade red glow from alpha 0 → 0.6 over ~0.3 s using material swaps.
+    /// Show red glow for 0.3 s, then leave it on until animateGreenGlow runs.
     private func animateRedGlow() async {
         guard let entity = redGlowEntity else { return }
-        let steps = 6
-        let stepDuration: UInt64 = 50_000_000  // 50 ms per step → 300 ms total
-        for i in 1...steps {
-            let alpha = CGFloat(i) / CGFloat(steps) * 0.6
-            setGlowAlpha(alpha, on: entity, baseColor: UIColor.red)
-            try? await Task.sleep(nanoseconds: stepDuration)
-        }
+        entity.isEnabled = true
+        try? await Task.sleep(nanoseconds: 300_000_000)
     }
 
-    /// Fade red glow out over ~0.5 s, then fade green glow in over ~0.5 s.
+    /// Hide red glow, show green glow for the reappraisal beat.
     private func animateGreenGlow() async {
         guard let red = redGlowEntity, let green = greenGlowEntity else { return }
-        let steps = 10
-        let stepDuration: UInt64 = 50_000_000  // 50 ms per step → 500 ms total
-
-        // Fade red out
-        for i in stride(from: steps, through: 0, by: -1) {
-            let alpha = CGFloat(i) / CGFloat(steps) * 0.6
-            setGlowAlpha(alpha, on: red, baseColor: UIColor.red)
-            try? await Task.sleep(nanoseconds: stepDuration)
-        }
-
-        // Fade green in
-        let greenBase = UIColor(red: 0.2, green: 0.9, blue: 0.4, alpha: 1.0)
-        for i in 1...steps {
-            let alpha = CGFloat(i) / CGFloat(steps) * 0.5
-            setGlowAlpha(alpha, on: green, baseColor: greenBase)
-            try? await Task.sleep(nanoseconds: stepDuration)
-        }
-    }
-
-    private func setGlowAlpha(_ alpha: CGFloat, on entity: ModelEntity, baseColor: UIColor) {
-        let material = SimpleMaterial(
-            color: baseColor.withAlphaComponent(alpha),
-            roughness: 1.0,
-            isMetallic: false
-        )
-        entity.model?.materials = [material]
+        red.isEnabled = false
+        green.isEnabled = true
     }
 
     // MARK: - Reset
 
     private func resetScene() {
-        // Clear glow entities to fully transparent
-        if let red = redGlowEntity {
-            setGlowAlpha(0, on: red, baseColor: UIColor.red)
-        }
-        if let green = greenGlowEntity {
-            setGlowAlpha(0, on: green, baseColor: UIColor(red: 0.2, green: 0.9, blue: 0.4, alpha: 1.0))
-        }
+        redGlowEntity?.isEnabled = false
+        greenGlowEntity?.isEnabled = false
         showSafeLabel = false
         hasTriggered = false
     }
