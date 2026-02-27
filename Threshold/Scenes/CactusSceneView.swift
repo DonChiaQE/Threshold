@@ -27,6 +27,7 @@ struct CactusSceneView: View {
     @State private var cactusEntity: Entity?
     @State private var redGlowEntity: ModelEntity?
     @State private var greenGlowEntity: ModelEntity?
+    @State private var gloveEntity: Entity?
     @State private var hasTriggered = false
     @State private var showSafeLabel = false
     @State private var trackingError: String?
@@ -55,6 +56,15 @@ struct CactusSceneView: View {
                 cactusEntity = cactus
             } catch {
                 trackingError = "Failed to load cactus model: \(error.localizedDescription)"
+            }
+
+            // Load glove model — follows right wrist via hand tracking
+            do {
+                let glove = try await Entity(named: "Gloves", in: realityKitContentBundle)
+                rootEntity.addChild(glove)
+                gloveEntity = glove
+            } catch {
+                // Glove load failure is non-fatal; scene still works without it
             }
 
             // Pre-build invisible glow spheres (opacity set at runtime)
