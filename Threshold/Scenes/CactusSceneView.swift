@@ -31,12 +31,12 @@ struct CactusSceneView: View {
     @State private var hasTriggered = false
     @State private var showSafeLabel = false
     @State private var trackingError: String?
+    /// Raised above the pot base to target the cactus spines. Updated after surface snap.
+    @State private var spinePosition: SIMD3<Float> = [0, 1.25, -0.6]
 
     // MARK: - Constants
 
     private let cactusPosition: SIMD3<Float> = [0, 1.0, -0.6]
-    /// Raised above the pot base to target the cactus spines. Updated after surface snap.
-    @State private var spinePosition: SIMD3<Float> = [0, 1.25, -0.6]
     private let triggerDistance: Float = 0.06  // metres
 
     // MARK: - ARKit (declared as `let` — not @State)
