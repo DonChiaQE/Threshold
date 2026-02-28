@@ -200,21 +200,26 @@ struct CactusSceneView: View {
                 transform.columns.3.z
             )
 
-            // Filter: table height in visionOS coords (origin = headset/eye level, y is down-positive)
-            // Table range: 0.3–1.2 m below eye level (avoids ceiling above and floor below)
-            guard center.y < -0.3 && center.y > -1.2 else { continue }
+            // Filter: table height — visionOS world space has floor at y≈0, positive y is up.
+            // Tables are ~0.5–1.1 m; ceiling is ~2.2 m (excluded by upper bound < 1.3).
+            guard center.y > 0.3 && center.y < 1.3 else { continue }
             guard center.z < -0.3 && center.z > -1.5 else { continue }
 
-            // Snap cactus to plane surface, correcting for model origin offset
-            // The asset origin is likely at the mesh center, not the base.
-            // Place at surface first, measure where the visual bottom landed, then shift up.
+            // Snap cactus to plane surface, correcting for model origin offset.
+            // Place at surface y first, then use visualBounds to measure where the visual base
+            // actually landed and shift up so the base sits exactly on the surface.
             guard let cactus = cactusEntity else { continue }
             cactus.position = center
             let worldBounds = cactus.visualBounds(relativeTo: nil)
-            let bottomCorrection = center.y - worldBounds.min.y  // how far to lift so base = surface
-            cactus.position.y += bottomCorrection
+            let boundsHeight = worldBounds.max.y - worldBounds.min.y
+            if boundsHeight > 0.01 {
+                // Valid bounds: lift so visual base aligns with surface
+                let bottomCorrection = center.y - worldBounds.min.y
+                cactus.position.y += bottomCorrection
+            }
+            // If bounds are empty (mesh not yet measurable), cactus stays at center.y — acceptable fallback.
 
-            // Sync spine position: 0.25 m above the corrected cactus base
+            // Sync spine position: 0.25 m above the placed cactus base
             spinePosition = SIMD3<Float>(center.x, cactus.position.y + 0.25, center.z)
             redGlowEntity?.position = spinePosition
             greenGlowEntity?.position = spinePosition
