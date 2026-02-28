@@ -65,8 +65,38 @@ The **explicit type annotation** on the RealityView closure — `(content: inout
 
 - **Device gaze → floor**: `WorldTrackingProvider` + `queryDeviceAnchor(atTimestamp:)` → project forward vector to y=0 plane. See `DumbbellSceneView.runDeviceTracking()`.
 - **Hand tracking**: `HandTrackingProvider` + `for await update in handTracking.anchorUpdates`. See `HammerSceneView.runHandTracking()`.
+- **Plane detection**: `PlaneDetectionProvider(alignments: [.horizontal])` + `for await update in planeDetection.anchorUpdates`. Requires `.worldSensing` authorization. See `CactusSceneView.runPlaneDetection()`.
 - ARKit sessions are declared as `let` properties on the view struct, not `@State`.
-- `Info.plist` must include `NSWorldSensingUsageDescription` for `WorldTrackingProvider` and `NSHandsTrackingUsageDescription` for `HandTrackingProvider`.
+- `Info.plist` must include `NSWorldSensingUsageDescription` for `WorldTrackingProvider` and `PlaneDetectionProvider`, and `NSHandsTrackingUsageDescription` for `HandTrackingProvider`.
+- When running multiple providers, call `arSession.requestAuthorization(for:)` and `arSession.run([...])` **before** launching concurrent `async let` tasks that consume provider streams. The session must be running before any `for await` loop starts.
+
+### visionOS world coordinate system
+
+**Floor is at y ≈ 0, positive y is up.** This is confirmed by `DumbbellSceneView` placing objects at `y = 0.01` (floor) and `y = 1.6` (eye-level panel). Typical values:
+
+| Surface | y (metres) |
+|---------|-----------|
+| Floor | 0 |
+| Table / desk | 0.6 – 0.9 |
+| Eye level (standing) | 1.6 |
+| Ceiling | 2.2 – 2.5 |
+
+When filtering plane anchors for table-height surfaces use `center.y > 0.3 && center.y < 1.3`. The ceiling is a valid horizontal plane — always add an upper bound or ARKit may snap objects to the ceiling before finding the table.
+
+### Placing a model on a detected surface
+
+After setting `entity.position = planeCenter`, use `visualBounds(relativeTo: nil)` to measure the world-space bounding box and shift the entity so its visual base sits on the surface:
+
+```swift
+entity.position = center
+let bounds = entity.visualBounds(relativeTo: nil)
+let boundsHeight = bounds.max.y - bounds.min.y
+if boundsHeight > 0.01 {                          // guard against empty bounds
+    entity.position.y += center.y - bounds.min.y  // lift base to surface
+}
+```
+
+Guard `boundsHeight > 0.01` — if the mesh is not yet measurable, `bounds.min.y` returns 0, which would produce a large erroneous upward offset.
 
 ### Animation
 
