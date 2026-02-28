@@ -123,7 +123,18 @@ struct CactusSceneView: View {
             }
         }
         .task {
-            await runHandTracking()
+            // Fallback: if no surface found in 3 s, lock in the hardcoded position
+            async let fallback: Void = {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                if !cactusPlaced {
+                    cactusPlaced = true
+                }
+            }()
+
+            async let tracking: Void = runHandTracking()
+            async let planes: Void = runPlaneDetection()
+
+            _ = await (fallback, tracking, planes)
         }
     }
 
