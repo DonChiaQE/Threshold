@@ -200,8 +200,9 @@ struct CactusSceneView: View {
                 transform.columns.3.z
             )
 
-            // Filter: table height (above 0.4 m from floor) and within arm's reach in front of user
-            guard center.y > 0.4 else { continue }
+            // Filter: table height in visionOS coords (origin = headset/eye level, y is down-positive)
+            // Table range: 0.3–1.2 m below eye level (avoids ceiling above and floor below)
+            guard center.y < -0.3 && center.y > -1.2 else { continue }
             guard center.z < -0.3 && center.z > -1.5 else { continue }
 
             // Snap cactus to plane surface
