@@ -205,11 +205,17 @@ struct CactusSceneView: View {
             guard center.y < -0.3 && center.y > -1.2 else { continue }
             guard center.z < -0.3 && center.z > -1.5 else { continue }
 
-            // Snap cactus to plane surface
-            cactusEntity?.position = center
+            // Snap cactus to plane surface, correcting for model origin offset
+            // The asset origin is likely at the mesh center, not the base.
+            // Place at surface first, measure where the visual bottom landed, then shift up.
+            guard let cactus = cactusEntity else { continue }
+            cactus.position = center
+            let worldBounds = cactus.visualBounds(relativeTo: nil)
+            let bottomCorrection = center.y - worldBounds.min.y  // how far to lift so base = surface
+            cactus.position.y += bottomCorrection
 
-            // Sync spine position: 0.25 m above cactus base (same offset as original design)
-            spinePosition = SIMD3<Float>(center.x, center.y + 0.25, center.z)
+            // Sync spine position: 0.25 m above the corrected cactus base
+            spinePosition = SIMD3<Float>(center.x, cactus.position.y + 0.25, center.z)
             redGlowEntity?.position = spinePosition
             greenGlowEntity?.position = spinePosition
 
