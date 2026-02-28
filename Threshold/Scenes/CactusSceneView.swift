@@ -92,10 +92,10 @@ struct CactusSceneView: View {
                 content.add(panel)
             }
 
-            // Safe label — always present, opacity driven by showSafeLabel state
+            // Safe label — parented to cactus so it floats above wherever the cactus landed
             if let label = attachments.entity(for: "safeLabel") {
-                label.position = [0, 1.7, -0.8]
-                content.add(label)
+                label.position = [0, 0.7, 0]  // 0.7 m above cactus entity origin
+                cactusEntity?.addChild(label)
             }
         } attachments: {
             Attachment(id: "controls") {
@@ -113,11 +113,11 @@ struct CactusSceneView: View {
 
             Attachment(id: "safeLabel") {
                 Text("Your skin is safe.\nYour brain just predicted danger.")
-                    .font(.title3.bold())
+                    .font(.title.bold())
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
-                    .padding(20)
-                    .frame(maxWidth: 320)
+                    .padding(28)
+                    .frame(maxWidth: 480)
                     .glassBackgroundEffect()
                     .opacity(showSafeLabel ? 1 : 0)
             }
