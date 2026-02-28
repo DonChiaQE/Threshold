@@ -16,6 +16,46 @@ import ARKit
 import RealityKitContent
 import AVFoundation
 
+// MARK: - Prick sound synthesiser
+
+private final class PrickSoundPlayer: @unchecked Sendable {
+
+    private let engine     = AVAudioEngine()
+    private let playerNode = AVAudioPlayerNode()
+    private let envNode    = AVAudioEnvironmentNode()
+    private let mono       = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+
+    init() {
+        engine.attach(playerNode)
+        engine.attach(envNode)
+        engine.connect(playerNode, to: envNode, format: mono)
+        engine.connect(envNode, to: engine.mainMixerNode, format: nil)
+        envNode.renderingAlgorithm = .HRTFHQ
+        envNode.distanceAttenuationParameters.referenceDistance = 0.3
+        envNode.distanceAttenuationParameters.rolloffFactor     = 1.0
+        try? engine.start()
+    }
+
+    /// Synthesise and play a 50 ms sharp noise snap at `position` in world space.
+    func play(at position: SIMD3<Float>) {
+        let sampleRate: Double = 44_100
+        let frameCount = AVAudioFrameCount(sampleRate * 0.05)   // 50 ms
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: mono, frameCapacity: frameCount) else { return }
+        buffer.frameLength = frameCount
+        let samples = buffer.floatChannelData![0]
+        for i in 0..<Int(frameCount) {
+            let t        = Double(i) / sampleRate
+            let envelope = exp(-t * 80.0)                        // very fast decay
+            let noise    = Double.random(in: -1.0...1.0) * 0.7  // white noise body
+            let zing     = sin(2.0 * .pi * 3_000.0 * t) * 0.3  // 3 kHz for sharpness
+            samples[i]   = Float(envelope * (noise + zing))
+        }
+        playerNode.position = AVAudio3DPoint(x: position.x, y: position.y, z: position.z)
+        playerNode.scheduleBuffer(buffer)
+        playerNode.play()
+    }
+}
+
 struct CactusSceneView: View {
 
     @Environment(AppModel.self) var appModel
@@ -35,6 +75,7 @@ struct CactusSceneView: View {
     @State private var spinePosition: SIMD3<Float> = [0, 1.25, -0.6]
     @State private var cactusPlaced = false
     @State private var speechSynthesizer = AVSpeechSynthesizer()
+    @State private var prickPlayer = PrickSoundPlayer()
 
     // MARK: - Constants
 
@@ -284,15 +325,7 @@ struct CactusSceneView: View {
         guard !hasTriggered else { return }
         hasTriggered = true
 
-        Task {
-            // Play prick sound (optional — requires "prick.wav" in bundle)
-            if let url = Bundle.main.url(forResource: "prick", withExtension: "wav") {
-                let player = try? AVAudioPlayer(contentsOf: url)
-                player?.play()
-                // Retain player for duration of playback
-                try? await Task.sleep(nanoseconds: 500_000_000)
-            }
-        }
+        prickPlayer.play(at: spinePosition)
 
         Task {
             await animateRedGlow()
