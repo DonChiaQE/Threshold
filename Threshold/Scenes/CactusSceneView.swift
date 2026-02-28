@@ -123,6 +123,9 @@ struct CactusSceneView: View {
             }
         }
         .task {
+            // Start the ARKit session first (handles auth + arSession.run)
+            await startARSession()
+
             // Fallback: if no surface found in 3 s, lock in the hardcoded position
             async let fallback: Void = {
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
@@ -154,6 +157,29 @@ struct CactusSceneView: View {
             isMetallic: false
         )
         return ModelEntity(mesh: mesh, materials: [material])
+    }
+
+    // MARK: - Session Setup
+
+    private func startARSession() async {
+        let auth = await arSession.requestAuthorization(for: [.handTracking, .worldSensing])
+        guard auth[.handTracking] == .allowed else {
+            trackingError = "Hand tracking permission was denied. Please enable it in Settings."
+            return
+        }
+        // If world sensing not permitted, skip plane detection and use hardcoded position
+        if auth[.worldSensing] != .allowed {
+            cactusPlaced = true
+        }
+        do {
+            if auth[.worldSensing] == .allowed {
+                try await arSession.run([handTracking, planeDetection])
+            } else {
+                try await arSession.run([handTracking])
+            }
+        } catch {
+            trackingError = "Hand tracking unavailable: \(error.localizedDescription)"
+        }
     }
 
     // MARK: - Plane Detection
@@ -194,19 +220,6 @@ struct CactusSceneView: View {
     // MARK: - Hand Tracking
 
     private func runHandTracking() async {
-        let auth = await arSession.requestAuthorization(for: [.handTracking])
-        guard auth[.handTracking] == .allowed else {
-            trackingError = "Hand tracking permission was denied. Please enable it in Settings."
-            return
-        }
-
-        do {
-            try await arSession.run([handTracking, planeDetection])
-        } catch {
-            trackingError = "Hand tracking unavailable: \(error.localizedDescription)"
-            return
-        }
-
         // Fingertip joints to monitor
         let tipJoints: [HandSkeleton.JointName] = [
             .indexFingerTip,
