@@ -86,13 +86,13 @@ struct CactusSceneView: View {
 
             // Control panel
             if let panel = attachments.entity(for: "controls") {
-                panel.position = [0, 1.5, -1.2]
+                panel.position = [-0.7, 1.5, -1.0]
                 content.add(panel)
             }
 
             // Safe label — always present, opacity driven by showSafeLabel state
             if let label = attachments.entity(for: "safeLabel") {
-                label.position = [0, 1.3, -0.6]
+                label.position = [0, 1.7, -0.8]
                 content.add(label)
             }
         } attachments: {
