@@ -33,6 +33,7 @@ struct CactusSceneView: View {
     @State private var trackingError: String?
     /// Raised above the pot base to target the cactus spines. Updated after surface snap.
     @State private var spinePosition: SIMD3<Float> = [0, 1.25, -0.6]
+    @State private var cactusPlaced = false
 
     // MARK: - Constants
 
@@ -43,6 +44,7 @@ struct CactusSceneView: View {
 
     private let arSession = ARKitSession()
     private let handTracking = HandTrackingProvider()
+    private let planeDetection = PlaneDetectionProvider(alignments: [.horizontal])
 
     // MARK: - Body
 
