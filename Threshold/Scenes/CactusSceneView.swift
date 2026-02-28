@@ -35,8 +35,8 @@ struct CactusSceneView: View {
     // MARK: - Constants
 
     private let cactusPosition: SIMD3<Float> = [0, 1.0, -0.6]
-    /// Raised above the pot base to target the cactus spines — tune this after on-device testing.
-    private let spinePosition: SIMD3<Float> = [0, 1.25, -0.6]
+    /// Raised above the pot base to target the cactus spines. Updated after surface snap.
+    @State private var spinePosition: SIMD3<Float> = [0, 1.25, -0.6]
     private let triggerDistance: Float = 0.06  // metres
 
     // MARK: - ARKit (declared as `let` — not @State)
