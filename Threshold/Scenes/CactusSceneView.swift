@@ -155,7 +155,7 @@ struct CactusSceneView: View {
         }
 
         do {
-            try await arSession.run([handTracking])
+            try await arSession.run([handTracking, planeDetection])
         } catch {
             trackingError = "Hand tracking unavailable: \(error.localizedDescription)"
             return
