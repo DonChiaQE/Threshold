@@ -145,6 +145,41 @@ struct CactusSceneView: View {
         return ModelEntity(mesh: mesh, materials: [material])
     }
 
+    // MARK: - Plane Detection
+
+    private func runPlaneDetection() async {
+        for await update in planeDetection.anchorUpdates {
+            guard !cactusPlaced else { return }
+
+            let anchor = update.anchor
+            // Only care about added or updated planes
+            guard update.event == .added || update.event == .updated else { continue }
+
+            // Extract world-space center of this plane
+            let transform = anchor.originFromAnchorTransform
+            let center = SIMD3<Float>(
+                transform.columns.3.x,
+                transform.columns.3.y,
+                transform.columns.3.z
+            )
+
+            // Filter: table height (above 0.4 m from floor) and within arm's reach in front of user
+            guard center.y > 0.4 else { continue }
+            guard center.z < -0.3 && center.z > -1.5 else { continue }
+
+            // Snap cactus to plane surface
+            cactusEntity?.position = center
+
+            // Sync spine position: 0.25 m above cactus base (same offset as original design)
+            spinePosition = SIMD3<Float>(center.x, center.y + 0.25, center.z)
+            redGlowEntity?.position = spinePosition
+            greenGlowEntity?.position = spinePosition
+
+            cactusPlaced = true
+            return
+        }
+    }
+
     // MARK: - Hand Tracking
 
     private func runHandTracking() async {
