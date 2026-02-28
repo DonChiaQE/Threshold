@@ -35,6 +35,8 @@ struct CactusSceneView: View {
     // MARK: - Constants
 
     private let cactusPosition: SIMD3<Float> = [0, 1.0, -0.6]
+    /// Raised above the pot base to target the cactus spines — tune this after on-device testing.
+    private let spinePosition: SIMD3<Float> = [0, 1.25, -0.6]
     private let triggerDistance: Float = 0.06  // metres
 
     // MARK: - ARKit (declared as `let` — not @State)
@@ -69,7 +71,7 @@ struct CactusSceneView: View {
 
             // Pre-build glow spheres — hidden until triggered
             let redGlow = makeGlowSphere(color: UIColor.red.withAlphaComponent(0.6))
-            redGlow.position = cactusPosition
+            redGlow.position = spinePosition
             redGlow.isEnabled = false
             rootEntity.addChild(redGlow)
             redGlowEntity = redGlow
@@ -77,7 +79,7 @@ struct CactusSceneView: View {
             let greenGlow = makeGlowSphere(
                 color: UIColor(red: 0.2, green: 0.9, blue: 0.4, alpha: 0.5)
             )
-            greenGlow.position = cactusPosition
+            greenGlow.position = spinePosition
             greenGlow.isEnabled = false
             rootEntity.addChild(greenGlow)
             greenGlowEntity = greenGlow
@@ -193,7 +195,7 @@ struct CactusSceneView: View {
                     worldMatrix.columns.3.z
                 )
 
-                let dist = simd_distance(tipPos, cactusPosition)
+                let dist = simd_distance(tipPos, spinePosition)
                 if dist < triggerDistance {
                     triggerSequence()
                     break
