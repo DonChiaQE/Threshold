@@ -34,6 +34,7 @@ struct CactusSceneView: View {
     /// Raised above the pot base to target the cactus spines. Updated after surface snap.
     @State private var spinePosition: SIMD3<Float> = [0, 1.25, -0.6]
     @State private var cactusPlaced = false
+    @State private var speechSynthesizer = AVSpeechSynthesizer()
 
     // MARK: - Constants
 
@@ -297,6 +298,11 @@ struct CactusSceneView: View {
             await animateRedGlow()
             try? await Task.sleep(nanoseconds: 1_500_000_000)  // 1.5 s pause
             await animateGreenGlow()
+            let utterance = AVSpeechUtterance(
+                string: "Your skin is safe. Your brain just predicted danger."
+            )
+            utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
+            speechSynthesizer.speak(utterance)
             showSafeLabel = true
             try? await Task.sleep(nanoseconds: 3_000_000_000)  // 3 s display
             showSafeLabel = false
@@ -322,6 +328,7 @@ struct CactusSceneView: View {
     // MARK: - Reset
 
     private func resetScene() {
+        speechSynthesizer.stopSpeaking(at: .immediate)
         redGlowEntity?.isEnabled = false
         greenGlowEntity?.isEnabled = false
         showSafeLabel = false
