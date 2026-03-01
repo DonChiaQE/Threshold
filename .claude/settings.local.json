@@ -9,7 +9,24 @@
       "WebFetch(domain:mitemmetim.medium.com)",
       "WebFetch(domain:www.oskarkwasniewski.dev)",
       "WebFetch(domain:gist.github.com)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+"Bash(date:*)",
+      "Bash(echo:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(wc:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(sort:*)",
+      "Bash(grep:*)",
+      "Bash(tr:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git tag:*)"
     ]
   }
 }
