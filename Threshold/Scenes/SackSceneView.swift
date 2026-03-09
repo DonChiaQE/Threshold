@@ -58,6 +58,13 @@ struct SackSceneView: View {
                 sack.position = floorCenter
                 rootEntity.addChild(sack)
                 sackEntity = sack
+
+                // Set fallback orb position based on actual model height
+                let bounds = sack.visualBounds(relativeTo: nil)
+                let boundsHeight = bounds.max.y - bounds.min.y
+                if boundsHeight > 0.01 {
+                    orbPosition = SIMD3<Float>(floorCenter.x, floorCenter.y + boundsHeight + 0.15, floorCenter.z)
+                }
             } catch {
                 trackingError = "Failed to load sack: \(error.localizedDescription)"
             }
@@ -290,14 +297,14 @@ struct SackSceneView: View {
         orbEntity?.isEnabled = false
 
         Task {
-            showLabel = true
+            withAnimation(.easeIn(duration: 0.6)) { showLabel = true }
             let utterance = AVSpeechUtterance(
                 string: "You did it. Your body carried the weight. Pain anticipated is not always pain caused."
             )
             utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
             speechSynthesizer.speak(utterance)
             try? await Task.sleep(nanoseconds: 5_000_000_000)
-            showLabel = false
+            withAnimation(.easeOut(duration: 0.4)) { showLabel = false }
         }
     }
 
