@@ -19,6 +19,7 @@ class AppModel {
         case hammer = "HammerScene"
         case dumbbell = "DumbbellScene"
         case cactus = "cactus"
+        case sack = "SackScene"
 
         var id: String { rawValue }
 
@@ -27,6 +28,7 @@ class AppModel {
             case .hammer: "Hammer (Arm)"
             case .dumbbell: "Dumbbell (Foot)"
             case .cactus: "The Cactus"
+            case .sack: "The Grocery Bag"
             }
         }
 
@@ -35,6 +37,7 @@ class AppModel {
             case .hammer: "Uses hand tracking to position a near-miss drop beside your arm."
             case .dumbbell: "Mark your foot position with gaze, then watch a near-miss drop."
             case .cactus: "Hurt does not equal harm."
+            case .sack: "Lift a heavy bag to experience that movement is safe."
             }
         }
 
@@ -43,6 +46,7 @@ class AppModel {
             case .hammer: "hammer.fill"
             case .dumbbell: "dumbbell.fill"
             case .cactus: "leaf.fill"
+            case .sack: "bag.fill"
             }
         }
     }
