@@ -56,5 +56,17 @@ struct ThresholdApp: App {
         }
         .immersionStyle(selection: .constant(.mixed), in: .mixed)
         .upperLimbVisibility(.hidden)
+
+        // Sack — floor pickup with grip gesture for upper body exposure therapy
+        ImmersiveSpace(id: AppModel.SceneType.sack.rawValue) {
+            SackSceneView()
+                .environment(appModel)
+                .onAppear { appModel.immersiveSpaceState = .open }
+                .onDisappear {
+                    appModel.immersiveSpaceState = .closed
+                    appModel.activeScene = nil
+                }
+        }
+        .immersionStyle(selection: .constant(.mixed), in: .mixed)
     }
 }
