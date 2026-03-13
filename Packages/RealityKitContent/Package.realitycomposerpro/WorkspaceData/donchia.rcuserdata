@@ -3,7 +3,8 @@
   "openSceneRelativePaths" : [
     "Immersive.usda",
     "Gloves.usda",
-    "Cactus.usda"
+    "Cactus.usda",
+    "Sack.usda"
   ],
   "recentIdentifiers" : {
     "785F2555-D865-43C1-AFB9-2BB0D5AF1F43" : [
@@ -416,6 +417,74 @@
         ]
       }
     ],
+    "90DAF06A-ACE3-452E-8AC8-C52F6420F842" : [
+      {
+        "date" : 794727686.832919,
+        "title" : "Untitled",
+        "transform" : [
+          0.98327833,
+          1.8787603e-09,
+          0.18210918,
+          0,
+          0.07713066,
+          0.90587705,
+          -0.41645843,
+          0,
+          -0.16496852,
+          0.42354077,
+          0.8907293,
+          0,
+          -0.09716554,
+          0.5956304,
+          0.8043107,
+          1
+        ]
+      },
+      {
+        "date" : 794727683.146,
+        "title" : "Untitled",
+        "transform" : [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0.7071069,
+          -0.70710677,
+          0,
+          0,
+          0.70710677,
+          0.7071069,
+          0,
+          0.1627762,
+          0.93510604,
+          0.83164376,
+          1
+        ]
+      },
+      {
+        "date" : 794727459.052753,
+        "title" : "Untitled",
+        "transform" : [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0.7071069,
+          -0.70710677,
+          0,
+          0,
+          0.70710677,
+          0.7071069,
+          0,
+          0.02704701,
+          0.9067501,
+          0.85999984,
+          1
+        ]
+      }
+    ],
     "AF09ED6F-1707-48FD-8720-65B998362C09" : [
       {
         "date" : 793889954.758582,
@@ -642,5 +711,5 @@
   "sceneViewportBackgroundColors" : {
 
   },
-  "selectedSceneRelativePath" : "Cactus.usda"
+  "selectedSceneRelativePath" : "Sack.usda"
 }

@@ -29,8 +29,10 @@ struct SackSceneView: View {
     @State private var handInProximity = false
     @State private var showLabel = false
     @State private var trackingError: String?
-    /// World-space position of the green orb. Updated after floor snap.
+    /// World-space position of the green orb. Updated on drop so re-pickup targets current location.
     @State private var orbPosition: SIMD3<Float> = [0, 0.65, -0.8]
+    /// Y of the orb when the sack is resting on the floor. Set once after plane snap, never changed.
+    @State private var orbFloorY: Float = 0.65
     /// Floor-level position of the sack origin. Used to restore on reset.
     @State private var floorCenter: SIMD3<Float> = [0, 0, -0.8]
     @State private var speechSynthesizer = AVSpeechSynthesizer()
@@ -38,7 +40,7 @@ struct SackSceneView: View {
     // MARK: - Constants
 
     private let pickupProximity: Float = 0.20   // metres — wrist to orb
-    private let fistThreshold: Float  = 0.07    // metres — fingertip to palm
+    private let fistThreshold: Float  = 0.08   // metres — fingertip to own metacarpal (straight ~14 cm, fist ~6-8 cm)
 
     // MARK: - ARKit (declared as `let` — not @State)
 
@@ -205,8 +207,9 @@ struct SackSceneView: View {
 
             // Orb: 15 cm above sack top
             let sackTopY = sack.position.y + (boundsHeight > 0.01 ? boundsHeight : 0.5)
-            let newOrbPos = SIMD3<Float>(center.x, sackTopY + 0.15, center.z)
+            let newOrbPos = SIMD3<Float>(center.x, sackTopY + 0, center.z)
             orbPosition = newOrbPos
+            orbFloorY = newOrbPos.y
             orbEntity?.position = newOrbPos
 
             sackPlaced = true
@@ -232,9 +235,45 @@ struct SackSceneView: View {
                 wristMatrix.columns.3.z
             )
 
-            // If already picked up, track sack to wrist
+            // If already picked up, track sack + orb to wrist or release on unclench
             if isPickedUp {
-                sackEntity?.position = wristPos + SIMD3<Float>(0, -0.25, 0)
+                let carriedSackPos = wristPos + SIMD3<Float>(0, -0.40, 0)
+                // Orb follows the grip point so user can see where to re-grab
+                let carriedOrbPos  = wristPos + SIMD3<Float>(0,  0.05, 0)
+
+                let fingerPairs: [(HandSkeleton.JointName, HandSkeleton.JointName)] = [
+                    (.indexFingerTip,  .indexFingerMetacarpal),
+                    (.middleFingerTip, .middleFingerMetacarpal),
+                    (.ringFingerTip,   .ringFingerMetacarpal),
+                    (.littleFingerTip, .littleFingerMetacarpal)
+                ]
+                // Same per-finger curl detection; lenient (untracked = still holding) to avoid jitter
+                do {
+                    let stillFist = fingerPairs.filter { (tipName, mcName) in
+                        let tipJoint = skeleton.joint(tipName)
+                        let mcJoint  = skeleton.joint(mcName)
+                        guard tipJoint.isTracked, mcJoint.isTracked else { return true }
+                        let tipMatrix = anchor.originFromAnchorTransform * tipJoint.anchorFromJointTransform
+                        let mcMatrix  = anchor.originFromAnchorTransform * mcJoint.anchorFromJointTransform
+                        let tipPos = SIMD3<Float>(tipMatrix.columns.3.x, tipMatrix.columns.3.y, tipMatrix.columns.3.z)
+                        let mcPos  = SIMD3<Float>(mcMatrix.columns.3.x,  mcMatrix.columns.3.y,  mcMatrix.columns.3.z)
+                        return simd_distance(tipPos, mcPos) < fistThreshold
+                    }.count >= 3
+                    if !stillFist {
+                        // Sack drops to floor at the XZ position where it was released
+                        let dropSackPos = SIMD3<Float>(carriedSackPos.x, floorCenter.y, carriedSackPos.z)
+                        let dropOrbPos  = SIMD3<Float>(carriedSackPos.x, orbFloorY,     carriedSackPos.z)
+                        isPickedUp = false
+                        handInProximity = false
+                        orbPosition = dropOrbPos
+                        sackEntity?.position = dropSackPos
+                        orbEntity?.position  = dropOrbPos
+                        orbEntity?.transform.scale = [1, 1, 1]
+                        continue
+                    }
+                }
+                sackEntity?.position = carriedSackPos
+                orbEntity?.position  = carriedOrbPos
                 continue
             }
 
@@ -249,26 +288,26 @@ struct SackSceneView: View {
 
             guard nowInProximity else { continue }
 
-            // Fist detection via palm center (middleFingerMetacarpal)
-            let palmJoint = skeleton.joint(.middleFingerMetacarpal)
-            guard palmJoint.isTracked else { continue }
-            let palmMatrix = anchor.originFromAnchorTransform * palmJoint.anchorFromJointTransform
-            let palmPos = SIMD3<Float>(
-                palmMatrix.columns.3.x,
-                palmMatrix.columns.3.y,
-                palmMatrix.columns.3.z
-            )
-
-            let tipJoints: [HandSkeleton.JointName] = [
-                .indexFingerTip, .middleFingerTip, .ringFingerTip, .littleFingerTip
+            // Fist detection: each finger's tip vs its own metacarpal.
+            // This is orientation-independent — Euclidean distance is invariant under rotation,
+            // so palm-up, palm-down, and palm-inward all produce the same curl measurement.
+            let fingerPairs: [(HandSkeleton.JointName, HandSkeleton.JointName)] = [
+                (.indexFingerTip,  .indexFingerMetacarpal),
+                (.middleFingerTip, .middleFingerMetacarpal),
+                (.ringFingerTip,   .ringFingerMetacarpal),
+                (.littleFingerTip, .littleFingerMetacarpal)
             ]
-            let isFist = tipJoints.allSatisfy { jointName in
-                let joint = skeleton.joint(jointName)
-                guard joint.isTracked else { return false }
-                let m = anchor.originFromAnchorTransform * joint.anchorFromJointTransform
-                let tipPos = SIMD3<Float>(m.columns.3.x, m.columns.3.y, m.columns.3.z)
-                return simd_distance(tipPos, palmPos) < fistThreshold
-            }
+            let curledCount = fingerPairs.filter { (tipName, mcName) in
+                let tipJoint = skeleton.joint(tipName)
+                let mcJoint  = skeleton.joint(mcName)
+                guard tipJoint.isTracked, mcJoint.isTracked else { return false }
+                let tipMatrix = anchor.originFromAnchorTransform * tipJoint.anchorFromJointTransform
+                let mcMatrix  = anchor.originFromAnchorTransform * mcJoint.anchorFromJointTransform
+                let tipPos = SIMD3<Float>(tipMatrix.columns.3.x, tipMatrix.columns.3.y, tipMatrix.columns.3.z)
+                let mcPos  = SIMD3<Float>(mcMatrix.columns.3.x,  mcMatrix.columns.3.y,  mcMatrix.columns.3.z)
+                return simd_distance(tipPos, mcPos) < fistThreshold
+            }.count
+            let isFist = curledCount >= 3
 
             if isFist {
                 triggerPickup()
@@ -294,7 +333,6 @@ struct SackSceneView: View {
     private func triggerPickup() {
         guard !isPickedUp else { return }
         isPickedUp = true
-        orbEntity?.isEnabled = false
 
         Task {
             withAnimation(.easeIn(duration: 0.6)) { showLabel = true }
