@@ -38,8 +38,8 @@ Registered as an `ImmersiveSpace` in `ThresholdApp.swift`. Listed in `ContentVie
 - Procedural: `MeshResource.generateCylinder(height: 0.02, radius: 0.2)`
 - Material: semi-transparent green `SimpleMaterial`
 - Rendered on the detected elevated surface
-- Subtle pulse animation (scale oscillation) to draw attention
-- Fades out after successful box placement
+- Pulse animation: scale oscillates between 1.0 and 1.1 on a 1.5s ease-in-out loop using repeated `move(to:)` calls
+- Fades out after successful box placement; reappears with pulse on reset
 
 ## ARKit Tracking
 
@@ -52,9 +52,11 @@ No `WorldTrackingProvider` needed (no gaze tracking in this scene).
 
 ### Plane Detection Logic
 
-- **Floor** (`center.y < 0.3`): Place the box here using standard floor-snapping pattern
-- **Elevated surface** (`center.y > 0.3 && center.y < 1.3`): Nearest qualifying horizontal plane becomes the target. Render the target zone disc on it. If multiple planes qualify, pick the one closest to the user (smallest Z magnitude).
-- **Fallback:** If no elevated surface found within 3 seconds, spawn a virtual target zone at `[0, 0.75, -0.8]`
+- **Floor** (`center.y > -0.1 && center.y < 0.3 && center.z < -0.3 && center.z > -1.5`): Place the box here using standard floor-snapping pattern. Z-range ensures the plane is in front of the user. Once detected, set `floorDetected = true` and exit the floor detection loop.
+- **Elevated surface** (`center.y > 0.3 && center.y < 1.3 && center.z < -0.3 && center.z > -1.5`): Nearest qualifying horizontal plane becomes the target. Render the target zone disc on it. If multiple planes qualify, pick the one closest to the user (smallest Z magnitude). Once detected, set `surfaceDetected = true` and exit the surface detection loop. Note: Z-magnitude proximity is an approximation assuming user is near world origin.
+- **Fallback timers (independent):** Both timers start at scene launch and run independently:
+  - Floor fallback: If `floorDetected` is still false after 3 seconds, place box at `[0, 0, -0.8]` and set `floorDetected = true`
+  - Surface fallback: If `surfaceDetected` is still false after 3 seconds, spawn virtual target zone at `[0, 0.75, -0.8]` and set `surfaceDetected = true`
 
 ### Hand Tracking
 
@@ -74,16 +76,18 @@ Authorization requested for `[.handTracking, .worldSensing]`. Session runs `[han
 | **Proximity** | Either hand within 0.20m of its nearest orb | That orb pulses (scale 1.0 -> 1.3, 0.3s ease-in-out) |
 | **Lifting** | Both orbs gripped (fist detected near each) | Box + orbs follow midpoint between two hands, box offset 0.15m below midpoint |
 | **Carrying (one hand)** | One hand releases during lift | Box + orbs follow remaining gripped hand (single-hand carry) |
-| **Placed** | Both hands release while box is within 0.25m of target zone center | Box snaps to surface, encouragement triggers |
+| **Placed** | Grip count reaches 0 while box is within 0.25m of target zone center | Box snaps to surface, encouragement triggers |
 
-### Key Transitions
+### Key Transitions (state-based, evaluated each frame)
 
-- **Idle -> Proximity:** Hand enters orb range (< 0.20m)
-- **Proximity -> Lifting:** Both orbs gripped (fist near each orb)
-- **Lifting -> Carrying:** One hand unclenches
-- **Carrying -> Lifting:** Second hand re-grips
-- **Lifting/Carrying -> Placed:** Both hands release while box center is within 0.25m of target zone center
-- **Lifting/Carrying -> Idle:** Both hands release outside target zone; box drops back to floor position
+- **Idle -> Proximity:** Any hand enters orb range (< 0.20m)
+- **Proximity -> Lifting:** Both orbs gripped (fist detected near each orb)
+- **Lifting -> Carrying:** Grip count drops from 2 to 1
+- **Carrying -> Lifting:** Grip count returns to 2
+- **Any lifted state -> Placed:** Grip count reaches 0 AND box center is within 0.25m of target zone center
+- **Any lifted state -> Idle:** Grip count reaches 0 AND box is NOT within 0.25m of target zone; box drops back to floor
+
+Transitions are driven by checking `gripCount` (0, 1, or 2) each frame rather than tracking release "events", avoiding edge cases with simultaneous state changes.
 
 ### Carrying Position
 
@@ -95,7 +99,7 @@ Authorization requested for `[.handTracking, .worldSensing]`. Session runs `[han
 
 ### Placement Animation
 
-When both hands release in the target zone:
+When grip count reaches 0 while box is in the target zone:
 1. Box animates via `move(to:)` (0.3s, `.easeOut`) snapping to target surface center
 2. Target zone disc fades out
 3. Orbs fade out or snap to box sides at rest
@@ -119,8 +123,9 @@ Parameters:
 - `instruction: "Grip both sides of the box to lift it onto the surface"`
 - `isReady`: not actively used (interaction is hand-driven, no pre-action button)
 - `hasDropped` maps to `hasPlaced` state
+- `onDrop: { }` — no-op, since pickup is hand-driven not button-driven
 - No `onMark` callback (no foot marking)
-- `onReset`: returns box to floor, orbs to sides, clears placement, resets to Idle
+- `onReset`: returns box to floor, orbs to sides, restores target zone with pulse, resets all state to Idle
 - `onReturn`: dismisses immersive space
 
 ### Label Attachment
@@ -140,10 +145,12 @@ Position: `[0, 1.6, -1.0]` — encouragement text, controlled by `showLabel` sta
 
 ```
 @State private var rootEntity = Entity()
-@State private var box: ModelEntity        // the procedural cube
-@State private var leftOrb: ModelEntity    // left-side orb
-@State private var rightOrb: ModelEntity   // right-side orb
-@State private var targetZone: ModelEntity // placement target disc
+@State private var box: ModelEntity?        // the procedural cube
+@State private var leftOrb: ModelEntity?   // left-side orb
+@State private var rightOrb: ModelEntity?  // right-side orb
+@State private var targetZone: ModelEntity? // placement target disc
+@State private var speechSynthesizer = AVSpeechSynthesizer()
+@State private var trackingError: String?  // permission/tracking error display
 
 @State private var leftHandGripping = false
 @State private var rightHandGripping = false
@@ -158,7 +165,8 @@ Position: `[0, 1.6, -1.0]` — encouragement text, controlled by `showLabel` sta
 
 @State private var floorCenter: SIMD3<Float> = [0, 0, -0.8]
 @State private var targetSurfaceCenter: SIMD3<Float> = [0, 0.75, -0.8]
-@State private var boxPlaced = false       // plane detection success flag
+@State private var floorDetected = false    // plane detection found a floor surface
+@State private var surfaceDetected = false  // plane detection found an elevated surface
 
 // ARKit (let, not @State)
 private let arSession = ARKitSession()
