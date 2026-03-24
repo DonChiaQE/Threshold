@@ -266,7 +266,11 @@ struct BoxLiftSceneView: View {
     private func runHandTracking() async {
         for await update in handTracking.anchorUpdates {
             let anchor = update.anchor
-            guard anchor.isTracked else { continue }
+            // Skip untracked anchors only when not carrying — while carrying,
+            // a briefly untracked hand should retain its last grip state.
+            if !isLifted {
+                guard anchor.isTracked else { continue }
+            }
             guard let skeleton = anchor.handSkeleton else { continue }
             guard !hasPlaced else { continue }
 
