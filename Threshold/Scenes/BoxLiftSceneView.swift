@@ -500,7 +500,16 @@ struct BoxLiftSceneView: View {
     // MARK: - Encouragement
 
     private func triggerEncouragement() {
-        // Stub — implemented in Task 6
+        Task {
+            withAnimation(.easeIn(duration: 0.6)) { showLabel = true }
+            let utterance = AVSpeechUtterance(
+                string: "Lifting is safe when done with confidence."
+            )
+            utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
+            speechSynthesizer.speak(utterance)
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            withAnimation(.easeOut(duration: 0.4)) { showLabel = false }
+        }
     }
 
     // MARK: - Reset
