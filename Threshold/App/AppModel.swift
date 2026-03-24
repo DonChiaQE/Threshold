@@ -20,6 +20,7 @@ class AppModel {
         case dumbbell = "DumbbellScene"
         case cactus = "cactus"
         case sack = "SackScene"
+        case boxLift = "BoxLiftScene"
 
         var id: String { rawValue }
 
@@ -29,6 +30,7 @@ class AppModel {
             case .dumbbell: "Dumbbell (Foot)"
             case .cactus: "The Cactus"
             case .sack: "The Grocery Bag"
+            case .boxLift: "The Box Lift"
             }
         }
 
@@ -38,6 +40,7 @@ class AppModel {
             case .dumbbell: "Mark your foot position with gaze, then watch a near-miss drop."
             case .cactus: "Hurt does not equal harm."
             case .sack: "Lift a heavy bag to experience that movement is safe."
+            case .boxLift: "Lift a box from the floor to a surface — movement is safe"
             }
         }
 
@@ -47,6 +50,7 @@ class AppModel {
             case .dumbbell: "dumbbell.fill"
             case .cactus: "leaf.fill"
             case .sack: "bag.fill"
+            case .boxLift: "shippingbox.fill"
             }
         }
     }
