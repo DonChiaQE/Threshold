@@ -68,5 +68,17 @@ struct ThresholdApp: App {
                 }
         }
         .immersionStyle(selection: .constant(.mixed), in: .mixed)
+
+        // Box Lift — two-handed grip pickup and surface placement
+        ImmersiveSpace(id: AppModel.SceneType.boxLift.rawValue) {
+            BoxLiftSceneView()
+                .environment(appModel)
+                .onAppear { appModel.immersiveSpaceState = .open }
+                .onDisappear {
+                    appModel.immersiveSpaceState = .closed
+                    appModel.activeScene = nil
+                }
+        }
+        .immersionStyle(selection: .constant(.mixed), in: .mixed)
     }
 }
