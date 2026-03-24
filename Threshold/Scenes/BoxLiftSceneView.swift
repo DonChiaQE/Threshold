@@ -264,7 +264,191 @@ struct BoxLiftSceneView: View {
     // MARK: - Hand Tracking
 
     private func runHandTracking() async {
-        // Stub — implemented in Task 5
+        for await update in handTracking.anchorUpdates {
+            let anchor = update.anchor
+            guard anchor.isTracked else { continue }
+            guard let skeleton = anchor.handSkeleton else { continue }
+            guard !hasPlaced else { continue }
+
+            // Wrist world position
+            let wristJoint = skeleton.joint(.wrist)
+            guard wristJoint.isTracked else { continue }
+            let wristMatrix = anchor.originFromAnchorTransform * wristJoint.anchorFromJointTransform
+            let wristPos = SIMD3<Float>(
+                wristMatrix.columns.3.x,
+                wristMatrix.columns.3.y,
+                wristMatrix.columns.3.z
+            )
+
+            // Fist detection: 3+ fingers curled
+            let fingerPairs: [(HandSkeleton.JointName, HandSkeleton.JointName)] = [
+                (.indexFingerTip, .indexFingerMetacarpal),
+                (.middleFingerTip, .middleFingerMetacarpal),
+                (.ringFingerTip, .ringFingerMetacarpal),
+                (.littleFingerTip, .littleFingerMetacarpal)
+            ]
+
+            let isFist: Bool
+            if isLifted {
+                // Lenient while carrying: untracked = still holding
+                let curledCount = fingerPairs.filter { (tipName, mcName) in
+                    let tipJoint = skeleton.joint(tipName)
+                    let mcJoint = skeleton.joint(mcName)
+                    guard tipJoint.isTracked, mcJoint.isTracked else { return true }
+                    let tipMatrix = anchor.originFromAnchorTransform * tipJoint.anchorFromJointTransform
+                    let mcMatrix = anchor.originFromAnchorTransform * mcJoint.anchorFromJointTransform
+                    let tipPos = SIMD3<Float>(tipMatrix.columns.3.x, tipMatrix.columns.3.y, tipMatrix.columns.3.z)
+                    let mcPos = SIMD3<Float>(mcMatrix.columns.3.x, mcMatrix.columns.3.y, mcMatrix.columns.3.z)
+                    return simd_distance(tipPos, mcPos) < fistThreshold
+                }.count
+                isFist = curledCount >= 3
+            } else {
+                // Strict before pickup: untracked = not curled
+                let curledCount = fingerPairs.filter { (tipName, mcName) in
+                    let tipJoint = skeleton.joint(tipName)
+                    let mcJoint = skeleton.joint(mcName)
+                    guard tipJoint.isTracked, mcJoint.isTracked else { return false }
+                    let tipMatrix = anchor.originFromAnchorTransform * tipJoint.anchorFromJointTransform
+                    let mcMatrix = anchor.originFromAnchorTransform * mcJoint.anchorFromJointTransform
+                    let tipPos = SIMD3<Float>(tipMatrix.columns.3.x, tipMatrix.columns.3.y, tipMatrix.columns.3.z)
+                    let mcPos = SIMD3<Float>(mcMatrix.columns.3.x, mcMatrix.columns.3.y, mcMatrix.columns.3.z)
+                    return simd_distance(tipPos, mcPos) < fistThreshold
+                }.count
+                isFist = curledCount >= 3
+            }
+
+            // Update per-hand state
+            let nearestOrb: ModelEntity?
+            if anchor.chirality == .left {
+                leftHandPosition = wristPos
+                leftHandGripping = isFist && (leftInProximity || isLifted)
+                nearestOrb = leftOrb
+            } else {
+                rightHandPosition = wristPos
+                rightHandGripping = isFist && (rightInProximity || isLifted)
+                nearestOrb = rightOrb
+            }
+
+            // Proximity check (only when not yet lifted)
+            if !isLifted {
+                if let orb = nearestOrb {
+                    let dist = simd_distance(wristPos, orb.position)
+                    let nowInProximity = dist < pickupProximity
+
+                    if anchor.chirality == .left {
+                        if nowInProximity != leftInProximity {
+                            leftInProximity = nowInProximity
+                            pulseOrb(leftOrb, grow: nowInProximity)
+                        }
+                    } else {
+                        if nowInProximity != rightInProximity {
+                            rightInProximity = nowInProximity
+                            pulseOrb(rightOrb, grow: nowInProximity)
+                        }
+                    }
+                }
+            }
+
+            // gripCount-based state machine
+            let gripCount = (leftHandGripping ? 1 : 0) + (rightHandGripping ? 1 : 0)
+
+            if !isLifted && gripCount == 2 {
+                // Both hands gripping near orbs → lift
+                isLifted = true
+            }
+
+            if isLifted {
+                if gripCount == 0 {
+                    // Released — check placement
+                    guard let boxEntity = box else { continue }
+                    let distToTarget = simd_distance(boxEntity.position, targetSurfaceCenter)
+
+                    if distToTarget < placementRadius {
+                        // Place on surface
+                        placeBox()
+                    } else {
+                        // Drop back to floor
+                        dropBoxToFloor()
+                    }
+                } else {
+                    // Carrying — update box position
+                    updateCarryPosition(gripCount: gripCount)
+                }
+            }
+        }
+    }
+
+    // MARK: - Carry Position
+
+    private func updateCarryPosition(gripCount: Int) {
+        let carryPoint: SIMD3<Float>
+        if gripCount == 2 {
+            carryPoint = (leftHandPosition + rightHandPosition) / 2
+        } else if leftHandGripping {
+            carryPoint = leftHandPosition
+        } else {
+            carryPoint = rightHandPosition
+        }
+
+        let boxPos = carryPoint + SIMD3<Float>(0, -0.15, 0)
+        box?.position = boxPos
+
+        // Orbs maintain relative offset from box center
+        leftOrb?.position = SIMD3<Float>(boxPos.x - 0.2, boxPos.y + boxSize / 2, boxPos.z)
+        rightOrb?.position = SIMD3<Float>(boxPos.x + 0.2, boxPos.y + boxSize / 2, boxPos.z)
+    }
+
+    // MARK: - Drop to Floor
+
+    private func dropBoxToFloor() {
+        guard let boxEntity = box else { return }
+        let dropPos = SIMD3<Float>(boxEntity.position.x, floorCenter.y, boxEntity.position.z)
+
+        isLifted = false
+        leftHandGripping = false
+        rightHandGripping = false
+        leftInProximity = false
+        rightInProximity = false
+
+        boxEntity.position = dropPos
+
+        let orbY = dropPos.y + boxSize / 2
+        leftOrb?.position = SIMD3<Float>(dropPos.x - 0.2, orbY, dropPos.z)
+        rightOrb?.position = SIMD3<Float>(dropPos.x + 0.2, orbY, dropPos.z)
+        leftOrb?.transform.scale = [1, 1, 1]
+        rightOrb?.transform.scale = [1, 1, 1]
+    }
+
+    // MARK: - Place on Surface
+
+    private func placeBox() {
+        hasPlaced = true
+        isLifted = false
+        leftHandGripping = false
+        rightHandGripping = false
+
+        // Snap box to target surface
+        if let boxEntity = box {
+            var snapTransform = boxEntity.transform
+            snapTransform.translation = targetSurfaceCenter
+            // Lift box so base sits on surface
+            snapTransform.translation.y += boxSize / 2
+            boxEntity.move(to: snapTransform, relativeTo: nil, duration: 0.3, timingFunction: .easeOut)
+        }
+
+        // Snap orbs to box sides at rest
+        let orbY = targetSurfaceCenter.y + boxSize / 2
+        leftOrb?.position = SIMD3<Float>(targetSurfaceCenter.x - 0.2, orbY, targetSurfaceCenter.z)
+        rightOrb?.position = SIMD3<Float>(targetSurfaceCenter.x + 0.2, orbY, targetSurfaceCenter.z)
+
+        // Fade out target zone (scale to zero)
+        if let zone = targetZone {
+            var fadeTransform = zone.transform
+            fadeTransform.scale = [0.01, 0.01, 0.01]
+            zone.move(to: fadeTransform, relativeTo: nil, duration: 0.3, timingFunction: .easeOut)
+        }
+
+        triggerEncouragement()
     }
 
     // MARK: - Orb Pulse
