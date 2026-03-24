@@ -77,7 +77,7 @@ struct BoxLiftSceneView: View {
             // Two green orbs on opposite sides of the box
             let lOrb = makeOrb()
             let rOrb = makeOrb()
-            let orbY = floorCenter.y + boxSize / 2  // box midpoint
+            let orbY = floorCenter.y  // box midpoint (floorCenter.y is the box center)
             lOrb.position = SIMD3<Float>(floorCenter.x - 0.2, orbY, floorCenter.z)
             rOrb.position = SIMD3<Float>(floorCenter.x + 0.2, orbY, floorCenter.z)
             rootEntity.addChild(lOrb)
@@ -230,28 +230,25 @@ struct BoxLiftSceneView: View {
 
                 floorCenter = boxEntity.position
 
-                // Reposition orbs to box sides
-                let orbY = boxEntity.position.y + boxSize / 2
+                // Reposition orbs to box sides at midpoint
+                let orbY = boxEntity.position.y
                 leftOrb?.position = SIMD3<Float>(boxEntity.position.x - 0.2, orbY, boxEntity.position.z)
                 rightOrb?.position = SIMD3<Float>(boxEntity.position.x + 0.2, orbY, boxEntity.position.z)
 
                 floorDetected = true
             }
 
-            // Elevated surface — pick closest to user (smallest |z|)
+            // Elevated surface — use first qualifying plane in front of user
             if !surfaceDetected && center.y > 0.3 && center.y < 1.3 {
-                let isBetter = abs(center.z) < abs(targetSurfaceCenter.z)
-                if isBetter || !surfaceDetected {
-                    targetSurfaceCenter = center
+                targetSurfaceCenter = center
 
-                    targetZone?.position = center
-                    // Lift target zone to sit on the surface
-                    if let zone = targetZone {
-                        let zoneBounds = zone.visualBounds(relativeTo: nil)
-                        let zoneHeight = zoneBounds.max.y - zoneBounds.min.y
-                        if zoneHeight > 0.001 {
-                            zone.position.y += center.y - zoneBounds.min.y
-                        }
+                targetZone?.position = center
+                // Lift target zone to sit on the surface
+                if let zone = targetZone {
+                    let zoneBounds = zone.visualBounds(relativeTo: nil)
+                    let zoneHeight = zoneBounds.max.y - zoneBounds.min.y
+                    if zoneHeight > 0.001 {
+                        zone.position.y += center.y - zoneBounds.min.y
                     }
                 }
 
@@ -398,8 +395,8 @@ struct BoxLiftSceneView: View {
         box?.position = boxPos
 
         // Orbs maintain relative offset from box center
-        leftOrb?.position = SIMD3<Float>(boxPos.x - 0.2, boxPos.y + boxSize / 2, boxPos.z)
-        rightOrb?.position = SIMD3<Float>(boxPos.x + 0.2, boxPos.y + boxSize / 2, boxPos.z)
+        leftOrb?.position = SIMD3<Float>(boxPos.x - 0.2, boxPos.y, boxPos.z)
+        rightOrb?.position = SIMD3<Float>(boxPos.x + 0.2, boxPos.y, boxPos.z)
     }
 
     // MARK: - Drop to Floor
@@ -416,7 +413,7 @@ struct BoxLiftSceneView: View {
 
         boxEntity.position = dropPos
 
-        let orbY = dropPos.y + boxSize / 2
+        let orbY = dropPos.y  // box midpoint
         leftOrb?.position = SIMD3<Float>(dropPos.x - 0.2, orbY, dropPos.z)
         rightOrb?.position = SIMD3<Float>(dropPos.x + 0.2, orbY, dropPos.z)
         leftOrb?.transform.scale = [1, 1, 1]
@@ -527,8 +524,8 @@ struct BoxLiftSceneView: View {
         // Restore box to floor
         box?.position = floorCenter
 
-        // Restore orbs to box sides
-        let orbY = floorCenter.y + boxSize / 2
+        // Restore orbs to box sides at midpoint
+        let orbY = floorCenter.y
         leftOrb?.position = SIMD3<Float>(floorCenter.x - 0.2, orbY, floorCenter.z)
         rightOrb?.position = SIMD3<Float>(floorCenter.x + 0.2, orbY, floorCenter.z)
         leftOrb?.transform.scale = [1, 1, 1]
