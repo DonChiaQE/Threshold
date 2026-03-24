@@ -200,7 +200,65 @@ struct BoxLiftSceneView: View {
     // MARK: - Plane Detection
 
     private func runPlaneDetection() async {
-        // Stub — implemented in Task 4
+        for await update in planeDetection.anchorUpdates {
+            // Exit once both surfaces found
+            guard !floorDetected || !surfaceDetected else { return }
+
+            let anchor = update.anchor
+            guard update.event == .added || update.event == .updated else { continue }
+
+            let transform = anchor.originFromAnchorTransform
+            let center = SIMD3<Float>(
+                transform.columns.3.x,
+                transform.columns.3.y,
+                transform.columns.3.z
+            )
+
+            // Z-range: in front of user
+            guard center.z < -0.3 && center.z > -1.5 else { continue }
+
+            // Floor plane
+            if !floorDetected && center.y > -0.1 && center.y < 0.3 {
+                guard let boxEntity = box else { continue }
+
+                boxEntity.position = center
+                let worldBounds = boxEntity.visualBounds(relativeTo: nil)
+                let boundsHeight = worldBounds.max.y - worldBounds.min.y
+                if boundsHeight > 0.01 {
+                    boxEntity.position.y += center.y - worldBounds.min.y
+                }
+
+                floorCenter = boxEntity.position
+
+                // Reposition orbs to box sides
+                let orbY = boxEntity.position.y + boxSize / 2
+                leftOrb?.position = SIMD3<Float>(boxEntity.position.x - 0.2, orbY, boxEntity.position.z)
+                rightOrb?.position = SIMD3<Float>(boxEntity.position.x + 0.2, orbY, boxEntity.position.z)
+
+                floorDetected = true
+            }
+
+            // Elevated surface — pick closest to user (smallest |z|)
+            if !surfaceDetected && center.y > 0.3 && center.y < 1.3 {
+                let isBetter = abs(center.z) < abs(targetSurfaceCenter.z)
+                if isBetter || !surfaceDetected {
+                    targetSurfaceCenter = center
+
+                    targetZone?.position = center
+                    // Lift target zone to sit on the surface
+                    if let zone = targetZone {
+                        let zoneBounds = zone.visualBounds(relativeTo: nil)
+                        let zoneHeight = zoneBounds.max.y - zoneBounds.min.y
+                        if zoneHeight > 0.001 {
+                            zone.position.y += center.y - zoneBounds.min.y
+                        }
+                    }
+                }
+
+                surfaceDetected = true
+                startTargetZonePulse()
+            }
+        }
     }
 
     // MARK: - Hand Tracking
@@ -225,7 +283,30 @@ struct BoxLiftSceneView: View {
     // MARK: - Target Zone Pulse
 
     private func startTargetZonePulse() {
-        // Stub — implemented in Task 4
+        guard let zone = targetZone else { return }
+        Task {
+            while !hasPlaced {
+                // Scale up
+                let growTransform = Transform(
+                    scale: [1.1, 1.0, 1.1],
+                    rotation: zone.transform.rotation,
+                    translation: zone.position
+                )
+                zone.move(to: growTransform, relativeTo: nil, duration: 0.75, timingFunction: .easeInOut)
+                try? await Task.sleep(nanoseconds: 750_000_000)
+
+                guard !hasPlaced else { break }
+
+                // Scale back
+                let shrinkTransform = Transform(
+                    scale: [1.0, 1.0, 1.0],
+                    rotation: zone.transform.rotation,
+                    translation: zone.position
+                )
+                zone.move(to: shrinkTransform, relativeTo: nil, duration: 0.75, timingFunction: .easeInOut)
+                try? await Task.sleep(nanoseconds: 750_000_000)
+            }
+        }
     }
 
     // MARK: - Encouragement
