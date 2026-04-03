@@ -12,45 +12,51 @@ import SwiftUI
 @Observable
 class AppModel {
 
+    // MARK: - Scene Categories
+
+    enum SceneCategory: String, CaseIterable, Identifiable {
+        case education = "Education"
+        case therapy = "Therapy"
+
+        var id: String { rawValue }
+
+        var systemImage: String {
+            switch self {
+            case .education: "book.fill"
+            case .therapy: "cross.case.fill"
+            }
+        }
+    }
+
     // MARK: - Scene Definitions
 
     /// Each scene type maps to a registered ImmersiveSpace ID.
     enum SceneType: String, CaseIterable, Identifiable {
-        case hammer = "HammerScene"
-        case dumbbell = "DumbbellScene"
-        case cactus = "cactus"
-        case sack = "SackScene"
-        case boxLift = "BoxLiftScene"
+        case nail = "NailScene"
 
         var id: String { rawValue }
 
+        var category: SceneCategory {
+            switch self {
+            case .nail: .education
+            }
+        }
+
         var title: String {
             switch self {
-            case .hammer: "Hammer (Arm)"
-            case .dumbbell: "Dumbbell (Foot)"
-            case .cactus: "The Cactus"
-            case .sack: "The Grocery Bag"
-            case .boxLift: "The Box Lift"
+            case .nail: "Nail in the Glove"
             }
         }
 
         var subtitle: String {
             switch self {
-            case .hammer: "Uses hand tracking to position a near-miss drop beside your arm."
-            case .dumbbell: "Mark your foot position with gaze, then watch a near-miss drop."
-            case .cactus: "Hurt does not equal harm."
-            case .sack: "Lift a heavy bag to experience that movement is safe."
-            case .boxLift: "Lift a box from the floor to a surface — movement is safe"
+            case .nail: "A nail appears to pierce your hand — but the reveal shows it passed harmlessly between your fingers."
             }
         }
 
         var systemImage: String {
             switch self {
-            case .hammer: "hammer.fill"
-            case .dumbbell: "dumbbell.fill"
-            case .cactus: "leaf.fill"
-            case .sack: "bag.fill"
-            case .boxLift: "shippingbox.fill"
+            case .nail: "hammer.fill"
             }
         }
     }
@@ -65,4 +71,7 @@ class AppModel {
 
     var immersiveSpaceState = ImmersiveSpaceState.closed
     var activeScene: SceneType?
+
+    /// When true, ContentView shows the educational debrief instead of the scene library.
+    var showEducation = false
 }
