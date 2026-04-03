@@ -33,30 +33,35 @@ class AppModel {
     /// Each scene type maps to a registered ImmersiveSpace ID.
     enum SceneType: String, CaseIterable, Identifiable {
         case nail = "NailScene"
+        case objectPickup = "ObjectPickupScene"
 
         var id: String { rawValue }
 
         var category: SceneCategory {
             switch self {
             case .nail: .education
+            case .objectPickup: .therapy
             }
         }
 
         var title: String {
             switch self {
             case .nail: "Nail in the Glove"
+            case .objectPickup: "Object Pickup"
             }
         }
 
         var subtitle: String {
             switch self {
             case .nail: "A nail appears to pierce your hand — but the reveal shows it passed harmlessly between your fingers."
+            case .objectPickup: "Pick up objects from the floor and place them in a box. Movement is safe."
             }
         }
 
         var systemImage: String {
             switch self {
             case .nail: "hammer.fill"
+            case .objectPickup: "hand.pinch.fill"
             }
         }
     }
@@ -74,4 +79,7 @@ class AppModel {
 
     /// When true, ContentView shows the educational debrief instead of the scene library.
     var showEducation = false
+
+    /// When true, ContentView shows the congratulatory screen instead of the scene library.
+    var showCongratulations = false
 }
