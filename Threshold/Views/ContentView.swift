@@ -22,6 +22,11 @@ struct ContentView: View {
                     appModel.showEducation = false
                     await dismissImmersiveSpace()
                 }
+            } else if appModel.showCongratulations {
+                CongratulationsView {
+                    appModel.showCongratulations = false
+                    await dismissImmersiveSpace()
+                }
             } else {
                 tabView
             }
@@ -37,7 +42,7 @@ struct ContentView: View {
             }
 
             Tab("Therapy", systemImage: "cross.case.fill") {
-                therapyPlaceholderView
+                sceneCategoryView(for: .therapy)
             }
         }
         .tabViewStyle(.sidebarAdaptable)
@@ -54,7 +59,9 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(category.rawValue)
                         .font(.largeTitle.bold())
-                    Text("Pain neuroscience education scenarios")
+                    Text(category == .education
+                         ? "Pain neuroscience education scenarios"
+                         : "Clinical rehabilitation exercises")
                         .font(.title3)
                         .foregroundStyle(.secondary)
                 }
@@ -75,23 +82,6 @@ struct ContentView: View {
             }
             .padding(40)
         }
-    }
-
-    // MARK: - Therapy Tab Placeholder
-
-    private var therapyPlaceholderView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "cross.case.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(.tertiary)
-            Text("Coming soon")
-                .font(.title2)
-                .foregroundStyle(.secondary)
-            Text("Clinical rehabilitation exercises will appear here.")
-                .font(.callout)
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Scene Launching
@@ -195,6 +185,42 @@ struct EducationDetailView: View {
             .padding(40)
             .frame(maxWidth: 600, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Congratulations View
+
+struct CongratulationsView: View {
+    let onDone: () async -> Void
+
+    var body: some View {
+        VStack(spacing: 32) {
+            Spacer()
+
+            Image(systemName: "trophy.fill")
+                .font(.system(size: 72))
+                .foregroundStyle(.yellow)
+
+            Text("You Did It!")
+                .font(.largeTitle.bold())
+
+            Text("You picked up all 5 objects and placed them in the box. Movement is safe, and your body is capable of more than you think.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 480)
+
+            Button {
+                Task { await onDone() }
+            } label: {
+                Label("Done", systemImage: "checkmark.circle.fill")
+            }
+            .buttonStyle(.borderedProminent)
+
+            Spacer()
+        }
+        .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
