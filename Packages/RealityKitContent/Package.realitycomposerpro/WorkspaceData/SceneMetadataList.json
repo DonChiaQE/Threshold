@@ -35,6 +35,18 @@
       }
     ]
   },
+  "5B5331CB-520E-4212-9CC6-2C97AA6790A4" : {
+    "objectMetadataList" : [
+      [
+        "5B5331CB-520E-4212-9CC6-2C97AA6790A4",
+        "Root"
+      ],
+      {
+        "isExpanded" : true,
+        "isLocked" : false
+      }
+    ]
+  },
   "65F6F990-A780-4474-B78B-572E0E4E273D" : {
     "objectMetadataList" : [
       [
@@ -59,6 +71,18 @@
       }
     ]
   },
+  "6AD4A108-AC91-4736-A7EA-8E99717DFC4C" : {
+    "objectMetadataList" : [
+      [
+        "6AD4A108-AC91-4736-A7EA-8E99717DFC4C",
+        "Root"
+      ],
+      {
+        "isExpanded" : true,
+        "isLocked" : false
+      }
+    ]
+  },
   "785F2555-D865-43C1-AFB9-2BB0D5AF1F43" : {
     "objectMetadataList" : [
       [
@@ -75,6 +99,18 @@
     "objectMetadataList" : [
       [
         "90DAF06A-ACE3-452E-8AC8-C52F6420F842",
+        "Root"
+      ],
+      {
+        "isExpanded" : true,
+        "isLocked" : false
+      }
+    ]
+  },
+  "AE946A1A-BFD5-478A-927E-BB8D99B86A8A" : {
+    "objectMetadataList" : [
+      [
+        "AE946A1A-BFD5-478A-927E-BB8D99B86A8A",
         "Root"
       ],
       {
@@ -109,8 +145,7 @@
     "objectMetadataList" : [
       [
         "CB766F92-EE55-4A63-9401-E7B8C009764D",
-        "Root",
-        "GridMaterial"
+        "Root"
       ],
       {
         "isExpanded" : true,
@@ -118,7 +153,8 @@
       },
       [
         "CB766F92-EE55-4A63-9401-E7B8C009764D",
-        "Root"
+        "Root",
+        "GridMaterial"
       ],
       {
         "isExpanded" : true,
@@ -146,6 +182,30 @@
         "Root",
         "GridMaterial",
         "GridMaterial"
+      ],
+      {
+        "isExpanded" : true,
+        "isLocked" : false
+      }
+    ]
+  },
+  "EA95AF61-3FBB-41CD-AA39-42FC1397CAA6" : {
+    "objectMetadataList" : [
+      [
+        "EA95AF61-3FBB-41CD-AA39-42FC1397CAA6",
+        "Root"
+      ],
+      {
+        "isExpanded" : true,
+        "isLocked" : false
+      }
+    ]
+  },
+  "F5EB8343-4366-41A5-8778-0AD1C1DF863D" : {
+    "objectMetadataList" : [
+      [
+        "F5EB8343-4366-41A5-8778-0AD1C1DF863D",
+        "Root"
       ],
       {
         "isExpanded" : true,

@@ -1,0 +1,84 @@
+<h2>Spatial Positioning — Top-Down View</h2>
+<p class="subtitle">How the nail, hammer, and glove relate to the tracked hand</p>
+
+<div class="mockup">
+  <div class="mockup-header">Right Hand — Fingers Spread on Table (Top-Down)</div>
+  <div class="mockup-body" style="position:relative; min-height:400px; display:flex; align-items:center; justify-content:center;">
+    <svg viewBox="0 0 400 380" width="400" height="380" style="font-family:system-ui;">
+      <!-- Hand outline -->
+      <!-- Palm -->
+      <ellipse cx="200" cy="280" rx="70" ry="50" fill="rgba(255,200,160,0.15)" stroke="rgba(255,200,160,0.4)" stroke-width="1.5"/>
+      <text x="200" y="285" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="11">Palm (wrist tracked)</text>
+
+      <!-- Thumb -->
+      <line x1="135" y1="260" x2="95" y2="200" stroke="rgba(255,200,160,0.4)" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="95" cy="195" r="6" fill="rgba(255,200,160,0.3)"/>
+      <text x="75" y="190" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="10">Thumb</text>
+
+      <!-- Index finger -->
+      <line x1="170" y1="235" x2="150" y2="100" stroke="rgba(255,200,160,0.4)" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="150" cy="95" r="6" fill="rgba(255,200,160,0.3)"/>
+      <text x="130" y="85" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="10">Index</text>
+
+      <!-- Middle finger -->
+      <line x1="195" y1="232" x2="200" y2="80" stroke="rgba(255,200,160,0.4)" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="200" cy="75" r="6" fill="rgba(255,200,160,0.3)"/>
+      <text x="225" y="68" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="10">Middle</text>
+
+      <!-- Ring finger -->
+      <line x1="220" y1="235" x2="245" y2="95" stroke="rgba(255,200,160,0.4)" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="245" cy="90" r="6" fill="rgba(255,200,160,0.3)"/>
+      <text x="270" y="83" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="10">Ring</text>
+
+      <!-- Pinky -->
+      <line x1="245" y1="245" x2="280" y2="120" stroke="rgba(255,200,160,0.4)" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="280" cy="115" r="6" fill="rgba(255,200,160,0.3)"/>
+      <text x="305" y="108" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="10">Pinky</text>
+
+      <!-- NAIL — between index and middle -->
+      <rect x="168" y="140" width="8" height="45" rx="2" fill="rgba(180,180,180,0.8)" stroke="rgba(255,255,255,0.6)" stroke-width="1"/>
+      <rect x="163" y="135" width="18" height="8" rx="2" fill="rgba(200,200,200,0.9)" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
+
+      <!-- Nail label -->
+      <line x1="172" y1="160" x2="60" y2="155" stroke="rgba(100,200,255,0.5)" stroke-width="1" stroke-dasharray="3,3"/>
+      <text x="55" y="152" text-anchor="end" fill="rgba(100,200,255,0.9)" font-size="11" font-weight="600">NAIL</text>
+      <text x="55" y="166" text-anchor="end" fill="rgba(100,200,255,0.5)" font-size="9">Midpoint of index</text>
+      <text x="55" y="178" text-anchor="end" fill="rgba(100,200,255,0.5)" font-size="9">& middle knuckles</text>
+
+      <!-- Hammer position (above, shown as side view indicator) -->
+      <line x1="172" y1="130" x2="172" y2="40" stroke="rgba(255,150,50,0.4)" stroke-width="1" stroke-dasharray="4,4"/>
+      <rect x="155" y="20" width="34" height="18" rx="4" fill="rgba(255,150,50,0.2)" stroke="rgba(255,150,50,0.6)" stroke-width="1"/>
+      <text x="172" y="33" text-anchor="middle" fill="rgba(255,150,50,0.9)" font-size="10" font-weight="600">HAMMER</text>
+      <text x="172" y="14" text-anchor="middle" fill="rgba(255,150,50,0.5)" font-size="9">~15cm above nail</text>
+
+      <!-- Glove overlay indicator -->
+      <ellipse cx="200" cy="200" rx="90" ry="120" fill="none" stroke="rgba(100,255,100,0.25)" stroke-width="1.5" stroke-dasharray="6,4"/>
+      <text x="320" y="200" fill="rgba(100,255,100,0.6)" font-size="10">Glove overlay</text>
+      <text x="320" y="214" fill="rgba(100,255,100,0.4)" font-size="9">(tracks wrist)</text>
+    </svg>
+  </div>
+</div>
+
+<div style="margin-top:20px;">
+  <h3>Joint Mapping (ARKit)</h3>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
+    <div style="background:rgba(255,255,255,0.04); border-radius:8px; padding:12px;">
+      <div style="font-size:11px; text-transform:uppercase; color:rgba(100,200,255,0.7); margin-bottom:6px;">Nail Position</div>
+      <div style="font-size:13px; color:rgba(255,255,255,0.8); line-height:1.5;">
+        Midpoint between<br>
+        <code style="color:rgba(100,200,255,0.9)">.indexFingerKnuckle</code> and<br>
+        <code style="color:rgba(100,200,255,0.9)">.middleFingerKnuckle</code><br>
+        <span style="color:rgba(255,255,255,0.4);">Placed slightly above hand surface</span>
+      </div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border-radius:8px; padding:12px;">
+      <div style="font-size:11px; text-transform:uppercase; color:rgba(100,255,100,0.7); margin-bottom:6px;">Glove Attachment</div>
+      <div style="font-size:13px; color:rgba(255,255,255,0.8); line-height:1.5;">
+        Existing pattern:<br>
+        <code style="color:rgba(100,255,100,0.9)">.wrist</code> joint transform<br>
+        <code style="color:rgba(100,255,100,0.9);">setTransformMatrix()</code><br>
+        <span style="color:rgba(255,255,255,0.4);">Same as GlovesSceneView</span>
+      </div>
+    </div>
+  </div>
+</div>

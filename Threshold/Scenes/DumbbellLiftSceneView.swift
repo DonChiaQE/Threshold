@@ -1,20 +1,19 @@
 //
-//  SackSceneView.swift
+//  DumbbellLiftSceneView.swift
 //  Threshold
 //
-//  Immersive scene: A grocery sack sits on the floor. The user brings their
-//  right hand to a green orb above the sack and clenches (fist) to pick it up.
-//  On pickup, an encouragement message is narrated and displayed.
-//  Educational goal: exposure therapy for upper-body movement fear.
+//  Immersive scene: A dumbbell sits on the floor. The user brings their
+//  hand to a green orb above the handle and clenches to pick it up.
+//  Educational goal: "Your body is strong enough — lifting is safe."
 //
 
 import SwiftUI
 import RealityKit
-import ARKit
 import RealityKitContent
+import ARKit
 import AVFoundation
 
-struct SackSceneView: View {
+struct DumbbellLiftSceneView: View {
 
     @Environment(AppModel.self) var appModel
     @Environment(\.dismissImmersiveSpace) var dismissImmersiveSpace
@@ -22,30 +21,27 @@ struct SackSceneView: View {
     // MARK: - State
 
     @State private var rootEntity = Entity()
-    @State private var sackEntity: Entity?
+    @State private var dumbbellEntity: Entity?
     @State private var orbEntity: ModelEntity?
-    @State private var sackPlaced = false
     @State private var isPickedUp = false
     @State private var handInProximity = false
     @State private var showLabel = false
     @State private var trackingError: String?
-    /// World-space position of the green orb. Updated on drop so re-pickup targets current location.
-    @State private var orbPosition: SIMD3<Float> = [0, 0.65, -0.8]
-    /// Y of the orb when the sack is resting on the floor. Set once after plane snap, never changed.
-    @State private var orbFloorY: Float = 0.65
-    /// Floor-level position of the sack origin. Used to restore on reset.
+    @State private var orbPosition: SIMD3<Float> = [0, 0.35, -0.8]
+    @State private var orbFloorY: Float = 0.35
     @State private var floorCenter: SIMD3<Float> = [0, 0, -0.8]
+    @State private var floorPlaced = false
     @State private var speechSynthesizer = AVSpeechSynthesizer()
 
     // MARK: - Constants
 
-    private let pickupProximity: Float = 0.20   // metres — wrist to orb
-    private let fistThreshold: Float  = 0.08   // metres — fingertip to own metacarpal (straight ~14 cm, fist ~6-8 cm)
+    private let pickupProximity: Float = 0.20
+    private let fistThreshold: Float = 0.12
 
-    // MARK: - ARKit (declared as `let` — not @State)
+    // MARK: - ARKit (let, not @State)
 
-    private let arSession      = ARKitSession()
-    private let handTracking   = HandTrackingProvider()
+    private let arSession = ARKitSession()
+    private let handTracking = HandTrackingProvider()
     private let planeDetection = PlaneDetectionProvider(alignments: [.horizontal])
 
     // MARK: - Body
@@ -54,24 +50,24 @@ struct SackSceneView: View {
         RealityView { (content: inout RealityViewContent, attachments: RealityViewAttachments) in
             content.add(rootEntity)
 
-            // Load sack model
+            // Load Dumbbell model
             do {
-                let sack = try await Entity(named: "Sack", in: realityKitContentBundle)
-                sack.position = floorCenter
-                rootEntity.addChild(sack)
-                sackEntity = sack
+                let dumbbell = try await Entity(named: "Dumbbell", in: realityKitContentBundle)
+                dumbbell.position = floorCenter
+                rootEntity.addChild(dumbbell)
+                dumbbellEntity = dumbbell
 
-                // Set fallback orb position based on actual model height
-                let bounds = sack.visualBounds(relativeTo: nil)
+                // Measure bounds and position orb above the handle
+                let bounds = dumbbell.visualBounds(relativeTo: nil)
                 let boundsHeight = bounds.max.y - bounds.min.y
                 if boundsHeight > 0.01 {
-                    orbPosition = SIMD3<Float>(floorCenter.x, floorCenter.y + boundsHeight + 0.15, floorCenter.z)
+                    orbPosition = SIMD3<Float>(floorCenter.x, floorCenter.y + boundsHeight * 0.15, floorCenter.z)
                 }
             } catch {
-                trackingError = "Failed to load sack: \(error.localizedDescription)"
+                trackingError = "Failed to load dumbbell: \(error.localizedDescription)"
             }
 
-            // Green interaction orb — floats above sack top
+            // Green interaction orb — floats above dumbbell
             let orb = makeOrb()
             orb.position = orbPosition
             rootEntity.addChild(orb)
@@ -91,7 +87,7 @@ struct SackSceneView: View {
         } attachments: {
             Attachment(id: "controls") {
                 SceneControlPanel(
-                    sceneName: "The Grocery Bag",
+                    sceneName: "Dumbbell Lift",
                     instruction: instructionText,
                     isReady: false,
                     hasDropped: isPickedUp,
@@ -103,7 +99,7 @@ struct SackSceneView: View {
             }
 
             Attachment(id: "encouragement") {
-                Text("You did it.\nYour body carried the weight.\nPain anticipated is not always pain caused.")
+                Text("Your body is strong enough.\nLifting is safe.")
                     .font(.title.bold())
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
@@ -116,14 +112,13 @@ struct SackSceneView: View {
         .task {
             await startARSession()
 
-            // Fallback: if no floor found in 3 s, keep hardcoded position
             async let fallback: Void = {
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
-                if !sackPlaced { sackPlaced = true }
+                if !floorPlaced { floorPlaced = true }
             }()
 
             async let tracking: Void = runHandTracking()
-            async let planes: Void   = runPlaneDetection()
+            async let planes: Void = runPlaneDetection()
 
             _ = await (fallback, tracking, planes)
         }
@@ -134,14 +129,14 @@ struct SackSceneView: View {
     private var instructionText: String {
         if let error = trackingError { return error }
         if isPickedUp { return "You lifted it. Tap Reset to try again." }
-        if handInProximity { return "Now clench your hand to grip the bag." }
-        return "Bring your right hand to the green orb above the bag and grip to pick it up."
+        if handInProximity { return "Now clench your hand to grip the dumbbell." }
+        return "Bring your hand to the green orb above the dumbbell and grip to pick it up."
     }
 
     // MARK: - Orb Builder
 
     private func makeOrb() -> ModelEntity {
-        let mesh = MeshResource.generateSphere(radius: 0.05)
+        let mesh = MeshResource.generateSphere(radius: 0.03)
         let material = SimpleMaterial(
             color: UIColor(red: 0.2, green: 0.9, blue: 0.4, alpha: 0.7),
             roughness: 1.0,
@@ -159,7 +154,7 @@ struct SackSceneView: View {
             return
         }
         if auth[.worldSensing] != .allowed {
-            sackPlaced = true
+            floorPlaced = true
         }
         do {
             if auth[.worldSensing] == .allowed {
@@ -176,7 +171,7 @@ struct SackSceneView: View {
 
     private func runPlaneDetection() async {
         for await update in planeDetection.anchorUpdates {
-            guard !sackPlaced else { return }
+            guard !floorPlaced else { return }
 
             let anchor = update.anchor
             guard update.event == .added || update.event == .updated else { continue }
@@ -188,31 +183,29 @@ struct SackSceneView: View {
                 transform.columns.3.z
             )
 
-            // Floor plane: y near 0, in front of user
             guard center.y < 0.3 && center.y > -0.1 else { continue }
             guard center.z < -0.3 && center.z > -1.5 else { continue }
 
-            guard let sack = sackEntity else { continue }
+            guard let dumbbell = dumbbellEntity else { continue }
 
-            // Snap sack base to floor surface
-            sack.position = center
-            let worldBounds = sack.visualBounds(relativeTo: nil)
+            // Snap dumbbell base to floor
+            dumbbell.position = center
+            let worldBounds = dumbbell.visualBounds(relativeTo: nil)
             let boundsHeight = worldBounds.max.y - worldBounds.min.y
             if boundsHeight > 0.01 {
-                sack.position.y += center.y - worldBounds.min.y
+                dumbbell.position.y += center.y - worldBounds.min.y
             }
 
-            // Store floor position for reset
-            floorCenter = sack.position
+            floorCenter = dumbbell.position
 
-            // Orb: 15 cm above sack top
-            let sackTopY = sack.position.y + (boundsHeight > 0.01 ? boundsHeight : 0.5)
-            let newOrbPos = SIMD3<Float>(center.x, sackTopY + 0, center.z)
+            // Orb above dumbbell top
+            let topY = dumbbell.position.y + (boundsHeight > 0.01 ? boundsHeight : 0.3)
+            let newOrbPos = SIMD3<Float>(center.x, topY, center.z)
             orbPosition = newOrbPos
             orbFloorY = newOrbPos.y
             orbEntity?.position = newOrbPos
 
-            sackPlaced = true
+            floorPlaced = true
             return
         }
     }
@@ -222,10 +215,10 @@ struct SackSceneView: View {
     private func runHandTracking() async {
         for await update in handTracking.anchorUpdates {
             let anchor = update.anchor
-            guard anchor.chirality == .right, anchor.isTracked else { continue }
+            guard anchor.isTracked else { continue }
             guard let skeleton = anchor.handSkeleton else { continue }
 
-            // Wrist world position (used for carrying offset)
+            // Wrist world position
             let wristJoint = skeleton.joint(.wrist)
             guard wristJoint.isTracked else { continue }
             let wristMatrix = anchor.originFromAnchorTransform * wristJoint.anchorFromJointTransform
@@ -235,57 +228,53 @@ struct SackSceneView: View {
                 wristMatrix.columns.3.z
             )
 
-            // Grip center (middle finger knuckle) — orientation-independent proximity reference.
-            // The wrist sits far from the orb when palm faces down; the knuckle stays close
-            // to where the fingers actually close regardless of palm orientation.
+            // Grip center (middle finger knuckle)
             let knuckleJoint = skeleton.joint(.middleFingerKnuckle)
             let gripPos: SIMD3<Float>
             if knuckleJoint.isTracked {
                 let knuckleMatrix = anchor.originFromAnchorTransform * knuckleJoint.anchorFromJointTransform
                 gripPos = SIMD3<Float>(knuckleMatrix.columns.3.x, knuckleMatrix.columns.3.y, knuckleMatrix.columns.3.z)
             } else {
-                gripPos = wristPos  // fallback
+                gripPos = wristPos
             }
 
-            // If already picked up, track sack + orb to wrist or release on unclench
+            // If already picked up, track dumbbell + orb to wrist or release on unclench
             if isPickedUp {
-                let carriedSackPos = wristPos + SIMD3<Float>(0, -0.40, 0)
-                // Orb follows the grip point so user can see where to re-grab
-                let carriedOrbPos  = wristPos + SIMD3<Float>(0,  0.05, 0)
+                let carriedPos = wristPos + SIMD3<Float>(0, -0.08, 0)
+                let carriedOrbPos = wristPos + SIMD3<Float>(0, -0.03, 0)
 
                 let fingerPairs: [(HandSkeleton.JointName, HandSkeleton.JointName)] = [
-                    (.indexFingerTip,  .indexFingerMetacarpal),
+                    (.indexFingerTip, .indexFingerMetacarpal),
                     (.middleFingerTip, .middleFingerMetacarpal),
-                    (.ringFingerTip,   .ringFingerMetacarpal),
+                    (.ringFingerTip, .ringFingerMetacarpal),
                     (.littleFingerTip, .littleFingerMetacarpal)
                 ]
-                // Same per-finger curl detection; lenient (untracked = still holding) to avoid jitter
-                do {
-                    let stillFist = fingerPairs.filter { (tipName, mcName) in
-                        let tipJoint = skeleton.joint(tipName)
-                        let mcJoint  = skeleton.joint(mcName)
-                        guard tipJoint.isTracked, mcJoint.isTracked else { return true }
-                        let tipMatrix = anchor.originFromAnchorTransform * tipJoint.anchorFromJointTransform
-                        let mcMatrix  = anchor.originFromAnchorTransform * mcJoint.anchorFromJointTransform
-                        let tipPos = SIMD3<Float>(tipMatrix.columns.3.x, tipMatrix.columns.3.y, tipMatrix.columns.3.z)
-                        let mcPos  = SIMD3<Float>(mcMatrix.columns.3.x,  mcMatrix.columns.3.y,  mcMatrix.columns.3.z)
-                        return simd_distance(tipPos, mcPos) < fistThreshold
-                    }.count >= 3
-                    if !stillFist {
-                        // Sack drops to floor at the XZ position where it was released
-                        let dropSackPos = SIMD3<Float>(carriedSackPos.x, floorCenter.y, carriedSackPos.z)
-                        let dropOrbPos  = SIMD3<Float>(carriedSackPos.x, orbFloorY,     carriedSackPos.z)
-                        isPickedUp = false
-                        handInProximity = false
-                        orbPosition = dropOrbPos
-                        sackEntity?.position = dropSackPos
-                        orbEntity?.position  = dropOrbPos
-                        orbEntity?.transform.scale = [1, 1, 1]
-                        continue
-                    }
+                let stillFist = fingerPairs.filter { (tipName, mcName) in
+                    let tipJoint = skeleton.joint(tipName)
+                    let mcJoint = skeleton.joint(mcName)
+                    guard tipJoint.isTracked, mcJoint.isTracked else { return true }
+                    let tipMatrix = anchor.originFromAnchorTransform * tipJoint.anchorFromJointTransform
+                    let mcMatrix = anchor.originFromAnchorTransform * mcJoint.anchorFromJointTransform
+                    let tipPos = SIMD3<Float>(tipMatrix.columns.3.x, tipMatrix.columns.3.y, tipMatrix.columns.3.z)
+                    let mcPos = SIMD3<Float>(mcMatrix.columns.3.x, mcMatrix.columns.3.y, mcMatrix.columns.3.z)
+                    return simd_distance(tipPos, mcPos) < fistThreshold
+                }.count >= 2
+
+                if !stillFist {
+                    // Drop dumbbell at current XZ, back to floor height
+                    let dropPos = SIMD3<Float>(carriedPos.x, floorCenter.y, carriedPos.z)
+                    let dropOrbPos = SIMD3<Float>(carriedPos.x, orbFloorY, carriedPos.z)
+                    isPickedUp = false
+                    handInProximity = false
+                    orbPosition = dropOrbPos
+                    dumbbellEntity?.position = dropPos
+                    orbEntity?.position = dropOrbPos
+                    orbEntity?.transform.scale = [1, 1, 1]
+                    continue
                 }
-                sackEntity?.position = carriedSackPos
-                orbEntity?.position  = carriedOrbPos
+
+                dumbbellEntity?.position = carriedPos
+                orbEntity?.position = carriedOrbPos
                 continue
             }
 
@@ -300,26 +289,24 @@ struct SackSceneView: View {
 
             guard nowInProximity else { continue }
 
-            // Fist detection: each finger's tip vs its own metacarpal.
-            // This is orientation-independent — Euclidean distance is invariant under rotation,
-            // so palm-up, palm-down, and palm-inward all produce the same curl measurement.
+            // Fist detection
             let fingerPairs: [(HandSkeleton.JointName, HandSkeleton.JointName)] = [
-                (.indexFingerTip,  .indexFingerMetacarpal),
+                (.indexFingerTip, .indexFingerMetacarpal),
                 (.middleFingerTip, .middleFingerMetacarpal),
-                (.ringFingerTip,   .ringFingerMetacarpal),
+                (.ringFingerTip, .ringFingerMetacarpal),
                 (.littleFingerTip, .littleFingerMetacarpal)
             ]
             let curledCount = fingerPairs.filter { (tipName, mcName) in
                 let tipJoint = skeleton.joint(tipName)
-                let mcJoint  = skeleton.joint(mcName)
+                let mcJoint = skeleton.joint(mcName)
                 guard tipJoint.isTracked, mcJoint.isTracked else { return false }
                 let tipMatrix = anchor.originFromAnchorTransform * tipJoint.anchorFromJointTransform
-                let mcMatrix  = anchor.originFromAnchorTransform * mcJoint.anchorFromJointTransform
+                let mcMatrix = anchor.originFromAnchorTransform * mcJoint.anchorFromJointTransform
                 let tipPos = SIMD3<Float>(tipMatrix.columns.3.x, tipMatrix.columns.3.y, tipMatrix.columns.3.z)
-                let mcPos  = SIMD3<Float>(mcMatrix.columns.3.x,  mcMatrix.columns.3.y,  mcMatrix.columns.3.z)
+                let mcPos = SIMD3<Float>(mcMatrix.columns.3.x, mcMatrix.columns.3.y, mcMatrix.columns.3.z)
                 return simd_distance(tipPos, mcPos) < fistThreshold
             }.count
-            let isFist = curledCount >= 3
+            let isFist = curledCount >= 2
 
             if isFist {
                 triggerPickup()
@@ -349,7 +336,7 @@ struct SackSceneView: View {
         Task {
             withAnimation(.easeIn(duration: 0.6)) { showLabel = true }
             let utterance = AVSpeechUtterance(
-                string: "You did it. Your body carried the weight. Pain anticipated is not always pain caused."
+                string: "Your body is strong enough. Lifting is safe."
             )
             utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
             speechSynthesizer.speak(utterance)
@@ -366,12 +353,11 @@ struct SackSceneView: View {
         handInProximity = false
         showLabel = false
 
-        // Restore sack to floor
-        sackEntity?.position = floorCenter
+        dumbbellEntity?.position = floorCenter
 
-        // Restore orb
         orbEntity?.isEnabled = true
         orbEntity?.transform.scale = [1, 1, 1]
+        orbPosition = SIMD3<Float>(floorCenter.x, orbFloorY, floorCenter.z)
         orbEntity?.position = orbPosition
     }
 }

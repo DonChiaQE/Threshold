@@ -10,7 +10,7 @@
       "WebFetch(domain:www.oskarkwasniewski.dev)",
       "WebFetch(domain:gist.github.com)",
       "Bash(cd:*)",
-"Bash(date:*)",
+      "Bash(date:*)",
       "Bash(echo:*)",
       "Bash(cat:*)",
       "Bash(ls:*)",
@@ -26,7 +26,10 @@
       "Bash(git status:*)",
       "Bash(git log:*)",
       "Bash(git diff:*)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(/Users/donchia/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh:*)",
+      "Bash(git:*)",
+      "Read(//tmp/**)"
     ]
   }
 }

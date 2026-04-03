@@ -11,12 +11,22 @@
 def Xform "Root"
 {
     def "Burlap_Sack" (
-        active = true
+        active = false
         prepend references = @Burlap_Sack.usdz@
     )
     {
         float3 xformOp:scale = (0.01, 0.01, 0.01)
         float3 xformOp:translate = (-0.008745315, 0, 0.0034865737)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+    }
+
+    def "trash_bag" (
+        active = true
+        prepend references = @trash_bag.usdz@
+    )
+    {
+        float3 xformOp:scale = (0.5, 0.5, 0.5)
+        float3 xformOp:translate = (-0.0034884214, 0.22491676, -0.0011051297)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
     }
 }

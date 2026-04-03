@@ -1,0 +1,23 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "Reality Composer Pro Version 2.0 (494.60.2)"
+    }
+    defaultPrim = "Root"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "Root"
+{
+    def "Open_box" (
+        active = true
+        prepend references = @Open_box.usdz@
+    )
+    {
+        float3 xformOp:scale = (0.006, 0.006, 0.006)
+        float3 xformOp:translate = (-0.0032151341, 0, 0.0027385354)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+    }
+}
+
