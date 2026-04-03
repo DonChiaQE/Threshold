@@ -45,6 +45,10 @@ struct NailSceneView: View {
     @State private var trackingError: String?
     @State private var fingersSpread = false
 
+    // MARK: - Task Handles
+
+    @State private var strikeTask: Task<Void, Never>?
+
     /// Cached nail target position (midpoint between index and middle knuckles).
     @State private var nailPosition: SIMD3<Float> = .zero
 
@@ -171,10 +175,13 @@ struct NailSceneView: View {
             case .waitingForHand:
                 if fingersSpread && wristJoint.isTracked {
                     sceneState = .gloveAppearing
-                    await attachGlove()
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
-                    await placeNailAndHammer()
-                    sceneState = .ready
+                    Task {
+                        await attachGlove()
+                        guard gloveEntity != nil else { return }
+                        try? await Task.sleep(nanoseconds: 1_000_000_000)
+                        await placeNailAndHammer()
+                        sceneState = .ready
+                    }
                 }
             case .ready:
                 // Update nail and hammer position to track hand until strike
@@ -265,7 +272,7 @@ struct NailSceneView: View {
             nailStartPos.z
         )
 
-        Task {
+        strikeTask = Task {
             // 1. Hammer swings down (0.3s)
             hammer.move(
                 to: Transform(translation: hammerStrikePos),
@@ -274,6 +281,7 @@ struct NailSceneView: View {
                 timingFunction: .easeIn
             )
             try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
 
             // 2. Nail drives down (0.7s)
             nail.move(
@@ -283,6 +291,7 @@ struct NailSceneView: View {
                 timingFunction: .easeOut
             )
             try? await Task.sleep(nanoseconds: 700_000_000)
+            guard !Task.isCancelled else { return }
 
             // 3. Hammer lifts back up (0.4s)
             hammer.move(
@@ -292,13 +301,16 @@ struct NailSceneView: View {
                 timingFunction: .easeOut
             )
             try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled else { return }
 
             // 4. Pause for tension (0.6s)
             try? await Task.sleep(nanoseconds: 600_000_000)
+            guard !Task.isCancelled else { return }
 
             // 5. Reveal — fade glove out (1.0s)
             sceneState = .revealing
             await fadeGloveOut()
+            guard !Task.isCancelled else { return }
 
             // 6. Trigger education view
             sceneState = .educating
@@ -322,6 +334,8 @@ struct NailSceneView: View {
     // MARK: - Reset
 
     private func resetScene() {
+        strikeTask?.cancel()
+        strikeTask = nil
         gloveEntity?.removeFromParent()
         gloveEntity = nil
         nailEntity?.removeFromParent()
