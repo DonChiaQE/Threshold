@@ -20,58 +20,9 @@ struct ThresholdApp: App {
                 .environment(appModel)
         }
 
-        // Hammer (Arm) immersive space
-        ImmersiveSpace(id: AppModel.SceneType.hammer.rawValue) {
-            HammerSceneView()
-                .environment(appModel)
-                .onAppear { appModel.immersiveSpaceState = .open }
-                .onDisappear {
-                    appModel.immersiveSpaceState = .closed
-                    appModel.activeScene = nil
-                }
-        }
-        .immersionStyle(selection: .constant(.mixed), in: .mixed)
-
-        // Dumbbell (Foot) immersive space
-        ImmersiveSpace(id: AppModel.SceneType.dumbbell.rawValue) {
-            DumbbellSceneView()
-                .environment(appModel)
-                .onAppear { appModel.immersiveSpaceState = .open }
-                .onDisappear {
-                    appModel.immersiveSpaceState = .closed
-                    appModel.activeScene = nil
-                }
-        }
-        .immersionStyle(selection: .constant(.mixed), in: .mixed)
-
-        // Cactus – proximity threat/reappraisal sequence with glove
-        ImmersiveSpace(id: AppModel.SceneType.cactus.rawValue) {
-            CactusSceneView()
-                .environment(appModel)
-                .onAppear { appModel.immersiveSpaceState = .open }
-                .onDisappear {
-                    appModel.immersiveSpaceState = .closed
-                    appModel.activeScene = nil
-                }
-        }
-        .immersionStyle(selection: .constant(.mixed), in: .mixed)
-        .upperLimbVisibility(.hidden)
-
-        // Sack — floor pickup with grip gesture for upper body exposure therapy
-        ImmersiveSpace(id: AppModel.SceneType.sack.rawValue) {
-            SackSceneView()
-                .environment(appModel)
-                .onAppear { appModel.immersiveSpaceState = .open }
-                .onDisappear {
-                    appModel.immersiveSpaceState = .closed
-                    appModel.activeScene = nil
-                }
-        }
-        .immersionStyle(selection: .constant(.mixed), in: .mixed)
-
-        // Box Lift — two-handed grip pickup and surface placement
-        ImmersiveSpace(id: AppModel.SceneType.boxLift.rawValue) {
-            BoxLiftSceneView()
+        // Nail in the Glove — pain neuroscience education
+        ImmersiveSpace(id: AppModel.SceneType.nail.rawValue) {
+            NailSceneView()
                 .environment(appModel)
                 .onAppear { appModel.immersiveSpaceState = .open }
                 .onDisappear {
