@@ -138,6 +138,8 @@ struct ObjectPickupSceneView: View {
                 trackingError = "Failed to load box model: \(error.localizedDescription)"
             }
 
+            guard boxEntity != nil else { return }
+
             // Spawn cubes
             spawnCubes()
 
@@ -173,7 +175,7 @@ struct ObjectPickupSceneView: View {
         case .setup:
             return "Setting up…"
         case .active:
-            return "Pick up the objects and place them in the box. (\(placedCount)/5)"
+            return "Pinch objects with your right hand and place them in the box. (\(placedCount)/5)"
         case .complete:
             return "All objects collected! Check the main window."
         }
@@ -301,6 +303,8 @@ struct ObjectPickupSceneView: View {
             placedCount += 1
             heldCubeIndex = nil
 
+            cube.isEnabled = false  // disable immediately to prevent re-pickup
+
             cube.move(
                 to: Transform(translation: boxOpeningPos),
                 relativeTo: rootEntity,
@@ -317,7 +321,6 @@ struct ObjectPickupSceneView: View {
 
             Task {
                 try? await Task.sleep(nanoseconds: 200_000_000) // wait for snap animation
-                cube.isEnabled = false
 
                 player.play(at: audioPos)
                 let utterance = AVSpeechUtterance(string: phrase)
