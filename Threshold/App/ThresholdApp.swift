@@ -31,5 +31,17 @@ struct ThresholdApp: App {
                 }
         }
         .immersionStyle(selection: .constant(.mixed), in: .mixed)
+
+        // Object Pickup — therapy rehabilitation
+        ImmersiveSpace(id: AppModel.SceneType.objectPickup.rawValue) {
+            ObjectPickupSceneView()
+                .environment(appModel)
+                .onAppear { appModel.immersiveSpaceState = .open }
+                .onDisappear {
+                    appModel.immersiveSpaceState = .closed
+                    appModel.activeScene = nil
+                }
+        }
+        .immersionStyle(selection: .constant(.mixed), in: .mixed)
     }
 }
