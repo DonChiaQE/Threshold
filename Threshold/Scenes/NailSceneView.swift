@@ -44,12 +44,13 @@ struct NailSceneView: View {
 
     @State private var trackingError: String?
     @State private var fingersSpread = false
+    @State private var debugDistance: Float = 0
 
     // MARK: - Task Handles
 
     @State private var strikeTask: Task<Void, Never>?
 
-    /// Cached nail target position (midpoint between index and middle knuckles).
+    /// Cached nail target position (midpoint between index and middle fingers).
     @State private var nailPosition: SIMD3<Float> = .zero
 
     // MARK: - ARKit (declared as `let` — not @State)
@@ -59,11 +60,11 @@ struct NailSceneView: View {
 
     // MARK: - Constants
 
-    /// Minimum distance (metres) between index and middle knuckles to count as "spread".
-    private let spreadThreshold: Float = 0.04
+    /// Minimum distance (metres) between index and middle finger joints to count as "spread".
+    private let spreadThreshold: Float = 0.015
 
-    /// How far above the knuckle midpoint the nail starts (metres).
-    private let nailHoverHeight: Float = 0.05
+    /// How far above the finger midpoint the nail hovers (metres).
+    private let nailHoverHeight: Float = -0.02
 
     /// How far above the nail the hammer hovers (metres).
     private let hammerHoverHeight: Float = 0.15
@@ -71,62 +72,29 @@ struct NailSceneView: View {
     /// How far the nail drives down during the strike (metres).
     private let nailDriveDistance: Float = 0.04
 
+    /// Nail tilt angle in degrees — positive tilts left side down, right side up.
+    private let nailTiltDegrees: Float = 15
+
     // MARK: - Body
 
     var body: some View {
-        RealityView { (content: inout RealityViewContent, attachments: RealityViewAttachments) in
+        RealityView { (content: inout RealityViewContent) in
             content.add(rootEntity)
-
-            if let panel = attachments.entity(for: "controls") {
-                panel.position = [0, 1.5, -1.2]
-                content.add(panel)
-            }
-        } attachments: {
-            Attachment(id: "controls") {
-                SceneControlPanel(
-                    sceneName: "Nail in the Glove",
-                    instruction: instructionText,
-                    isReady: sceneState == .ready,
-                    hasDropped: sceneState == .educating,
-                    actionLabel: "Strike",
-                    actionIcon: "hammer.fill",
-                    onDrop: performStrike,
-                    onReset: resetScene,
-                    onReturn: { await dismissImmersiveSpace() }
-                )
-            }
         }
         .task {
-            await runHandTracking()
+            await runTracking()
         }
-    }
-
-    // MARK: - Instruction Text
-
-    private var instructionText: String {
-        if let error = trackingError { return error }
-        switch sceneState {
-        case .waitingForHand:
-            if !fingersSpread {
-                return "Place your right hand flat on the table and spread your fingers wide."
+        .onChange(of: appModel.strikeRequested) {
+            if appModel.strikeRequested {
+                appModel.strikeRequested = false
+                performStrike()
             }
-            return "Detecting hand…"
-        case .gloveAppearing:
-            return "Fitting glove…"
-        case .ready:
-            return "Hold still. Tap Strike when ready."
-        case .animating:
-            return "Striking…"
-        case .revealing:
-            return "Look at your hand…"
-        case .educating:
-            return "Check the main window for what just happened."
         }
     }
 
-    // MARK: - Hand Tracking
+    // MARK: - Tracking Setup
 
-    private func runHandTracking() async {
+    private func runTracking() async {
         let auth = await arSession.requestAuthorization(for: [.handTracking])
         guard auth[.handTracking] == .allowed else {
             trackingError = "Hand tracking permission was denied. Please enable it in Settings."
@@ -139,6 +107,8 @@ struct NailSceneView: View {
             trackingError = "Hand tracking unavailable: \(error.localizedDescription)"
             return
         }
+
+        appModel.nailPhase = .waitingForHand
 
         for await update in handTracking.anchorUpdates {
             let anchor = update.anchor
@@ -153,20 +123,21 @@ struct NailSceneView: View {
             }
 
             // Check finger spread and compute nail position
-            let indexKnuckle = skeleton.joint(.indexFingerKnuckle)
-            let middleKnuckle = skeleton.joint(.middleFingerKnuckle)
-            guard indexKnuckle.isTracked, middleKnuckle.isTracked else { continue }
+            let indexDIP = skeleton.joint(.indexFingerIntermediateTip)
+            let middleDIP = skeleton.joint(.middleFingerIntermediateTip)
+            guard indexDIP.isTracked, middleDIP.isTracked else { continue }
 
-            let indexWorld = anchor.originFromAnchorTransform * indexKnuckle.anchorFromJointTransform
-            let middleWorld = anchor.originFromAnchorTransform * middleKnuckle.anchorFromJointTransform
+            let indexWorld = anchor.originFromAnchorTransform * indexDIP.anchorFromJointTransform
+            let middleWorld = anchor.originFromAnchorTransform * middleDIP.anchorFromJointTransform
 
             let indexPos = SIMD3<Float>(indexWorld.columns.3.x, indexWorld.columns.3.y, indexWorld.columns.3.z)
             let middlePos = SIMD3<Float>(middleWorld.columns.3.x, middleWorld.columns.3.y, middleWorld.columns.3.z)
 
             let knuckleDistance = simd_distance(indexPos, middlePos)
+            debugDistance = knuckleDistance
             fingersSpread = knuckleDistance > spreadThreshold
 
-            // Midpoint between the two knuckles, slightly above the hand surface
+            // Midpoint between the two fingers, slightly above the hand surface
             let midpoint = (indexPos + middlePos) / 2.0
             nailPosition = SIMD3<Float>(midpoint.x, midpoint.y + nailHoverHeight, midpoint.z)
 
@@ -175,12 +146,14 @@ struct NailSceneView: View {
             case .waitingForHand:
                 if fingersSpread && wristJoint.isTracked {
                     sceneState = .gloveAppearing
+                    appModel.nailPhase = .gloveAppearing
                     Task {
                         await attachGlove()
                         guard gloveEntity != nil else { return }
                         try? await Task.sleep(nanoseconds: 1_000_000_000)
                         await placeNailAndHammer()
                         sceneState = .ready
+                        appModel.nailPhase = .ready
                     }
                 }
             case .ready:
@@ -224,6 +197,7 @@ struct NailSceneView: View {
         do {
             let nail = try await Entity(named: "Nail", in: realityKitContentBundle)
             nail.position = nailPosition
+            nail.orientation = simd_quatf(angle: nailTiltDegrees * .pi / 180, axis: [0, 0, 1])
             rootEntity.addChild(nail)
             nailEntity = nail
         } catch {
@@ -254,33 +228,25 @@ struct NailSceneView: View {
               let nail = nailEntity else { return }
 
         sceneState = .animating
+        appModel.nailPhase = .animating
 
-        let hammerStartPos = hammer.position
         let nailStartPos = nail.position
 
-        // Target: hammer moves down to nail head level
-        let hammerStrikePos = SIMD3<Float>(
-            nailStartPos.x,
-            nailStartPos.y + 0.02, // just above nail head
-            nailStartPos.z
-        )
-
-        // Target: nail drives down
+        // Target: nail drives into the wall (-Z direction)
         let nailDrivenPos = SIMD3<Float>(
             nailStartPos.x,
-            nailStartPos.y - nailDriveDistance,
-            nailStartPos.z
+            nailStartPos.y,
+            nailStartPos.z - nailDriveDistance
         )
 
+        // Play the hammer's baked animation (same pattern as HammerSceneView)
+        if let animation = hammer.availableAnimations.first {
+            hammer.playAnimation(animation)
+        }
+
         strikeTask = Task {
-            // 1. Hammer swings down (0.3s)
-            hammer.move(
-                to: Transform(translation: hammerStrikePos),
-                relativeTo: rootEntity,
-                duration: 0.3,
-                timingFunction: .easeIn
-            )
-            try? await Task.sleep(nanoseconds: 300_000_000)
+            // 1. Wait for the hammer strike to land, then drive the nail
+            try? await Task.sleep(nanoseconds: 900_000_000)
             guard !Task.isCancelled else { return }
 
             // 2. Nail drives down (0.7s)
@@ -293,26 +259,17 @@ struct NailSceneView: View {
             try? await Task.sleep(nanoseconds: 700_000_000)
             guard !Task.isCancelled else { return }
 
-            // 3. Hammer lifts back up (0.4s)
-            hammer.move(
-                to: Transform(translation: hammerStartPos),
-                relativeTo: rootEntity,
-                duration: 0.4,
-                timingFunction: .easeOut
-            )
-            try? await Task.sleep(nanoseconds: 400_000_000)
+            // 3. Pause for tension (1.0s)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
             guard !Task.isCancelled else { return }
 
-            // 4. Pause for tension (0.6s)
-            try? await Task.sleep(nanoseconds: 600_000_000)
-            guard !Task.isCancelled else { return }
-
-            // 5. Reveal — fade glove out (1.0s)
+            // 4. Reveal — fade glove out (1.0s)
             sceneState = .revealing
+            appModel.nailPhase = .revealing
             await fadeGloveOut()
             guard !Task.isCancelled else { return }
 
-            // 6. Trigger education view
+            // 5. Trigger education view
             sceneState = .educating
             appModel.showEducation = true
         }
@@ -345,5 +302,7 @@ struct NailSceneView: View {
         fingersSpread = false
         sceneState = .waitingForHand
         appModel.showEducation = false
+        appModel.nailPhase = .inactive
+        appModel.strikeRequested = false
     }
 }

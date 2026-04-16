@@ -10,17 +10,13 @@
 
 def Xform "Root"
 {
-    def "Nail" (
+    def "ROBOT__TOY" (
         active = true
-        customData = {
-            float3 rotationEulerHint = (1.5707964, 0, -1.5707964)
-        }
-        prepend references = @Nail.usdz@
+        prepend references = @ROBOT__TOY.usdz@
     )
     {
-        quatf xformOp:orient = (0.5, 0.5, -0.5, -0.5)
-        float3 xformOp:scale = (0.003, 0.003, 0.003)
-        float3 xformOp:translate = (0, 0, 0.07)
+        float3 xformOp:scale = (0.0005, 0.0005, 0.0005)
+        float3 xformOp:translate = (-0.0028769765, 0, 0.0064831376)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
     }
 }

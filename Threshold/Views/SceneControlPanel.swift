@@ -53,14 +53,14 @@ struct SceneControlPanel: View {
         VStack(spacing: 20) {
             // Title
             Text(sceneName)
-                .font(.title2.bold())
+                .font(.title.bold())
 
             // Contextual instruction
             Text(instruction)
-                .font(.body)
+                .font(.title3)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 280)
+                .frame(maxWidth: 400)
 
             // Action buttons
             HStack(spacing: 14) {
@@ -104,8 +104,72 @@ struct SceneControlPanel: View {
                 }
             }
         }
-        .padding(28)
-        .frame(width: 380)
+        .padding(36)
+        .frame(width: 500)
         .glassBackgroundEffect()
     }
+}
+
+// MARK: - Previews
+
+#Preview("Nail — Pre-action") {
+    SceneControlPanel(
+        sceneName: "Nail in the Glove",
+        instruction: "Place your right hand flat on the wall and spread your fingers wide.",
+        isReady: false,
+        hasDropped: false,
+        onDrop: { },
+        onReset: { },
+        onReturn: { }
+    )
+}
+
+#Preview("Nail — Ready") {
+    SceneControlPanel(
+        sceneName: "Nail in the Glove",
+        instruction: "Hold still. Tap Strike when ready.",
+        isReady: true,
+        hasDropped: false,
+        actionLabel: "Strike",
+        actionIcon: "hammer.fill",
+        onDrop: { },
+        onReset: { },
+        onReturn: { }
+    )
+}
+
+#Preview("Nail — Post-action") {
+    SceneControlPanel(
+        sceneName: "Nail in the Glove",
+        instruction: "Check the main window for what just happened.",
+        isReady: false,
+        hasDropped: true,
+        onDrop: { },
+        onReset: { },
+        onReturn: { }
+    )
+}
+
+#Preview("Pickup — Active") {
+    SceneControlPanel(
+        sceneName: "Object Pickup",
+        instruction: "Pinch objects with your right hand and place them in the box. (2/5)",
+        isReady: false,
+        hasDropped: false,
+        onDrop: { },
+        onReset: { },
+        onReturn: { }
+    )
+}
+
+#Preview("Pickup — Complete") {
+    SceneControlPanel(
+        sceneName: "Object Pickup",
+        instruction: "All objects collected! Check the main window.",
+        isReady: false,
+        hasDropped: true,
+        onDrop: { },
+        onReset: { },
+        onReturn: { }
+    )
 }

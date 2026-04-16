@@ -28,9 +28,11 @@ struct ThresholdApp: App {
                 .onDisappear {
                     appModel.immersiveSpaceState = .closed
                     appModel.activeScene = nil
+                    appModel.nailPhase = .inactive
                 }
         }
         .immersionStyle(selection: .constant(.mixed), in: .mixed)
+        .upperLimbVisibility(.hidden)
 
         // Object Pickup — therapy rehabilitation
         ImmersiveSpace(id: AppModel.SceneType.objectPickup.rawValue) {

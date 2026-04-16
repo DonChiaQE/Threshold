@@ -53,7 +53,7 @@ class AppModel {
 
         var subtitle: String {
             switch self {
-            case .nail: "A nail appears to pierce your hand — but the reveal shows it passed harmlessly between your fingers."
+            case .nail: "A nail appears to pierce your hand, but the reveal shows it passed harmlessly between your fingers."
             case .objectPickup: "Pick up objects from the floor and place them in a box. Movement is safe."
             }
         }
@@ -82,4 +82,19 @@ class AppModel {
 
     /// When true, ContentView shows the congratulatory screen instead of the scene library.
     var showCongratulations = false
+
+    // MARK: - Nail Scene Communication
+
+    enum NailPhase {
+        case inactive
+        case waitingForHand
+        case gloveAppearing
+        case ready
+        case animating
+        case revealing
+    }
+
+    var nailPhase: NailPhase = .inactive
+    /// Set by ContentView to trigger the strike animation.
+    var strikeRequested = false
 }

@@ -13,14 +13,14 @@ def Xform "Root"
     def "gloves" (
         active = true
         customData = {
-            float3 rotationEulerHint = (1.2217298, 4.625123, 3.141591)
+            float3 rotationEulerHint = (-1.1344662, 4.7123885, 3.1415925)
         }
         prepend references = @gloves.usdz@
     )
     {
-        quatf xformOp:orient = (-0.42288452, 0.6039425, 0.38750222, 0.5534114)
+        quatf xformOp:orient = (-0.37992874, 0.5963675, 0.37992874, 0.5963675)
         float3 xformOp:scale = (0.02, 0.02, 0.02)
-        float3 xformOp:translate = (-0.2, -0.15, 0)
+        float3 xformOp:translate = (-0.2, -0.15, -0.04)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
     }
 }

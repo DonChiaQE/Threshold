@@ -9,7 +9,6 @@
 
 import SwiftUI
 import RealityKit
-import ARKit
 import RealityKitContent
 import AVFoundation
 
@@ -74,40 +73,33 @@ struct ObjectPickupSceneView: View {
 
     @State private var rootEntity = Entity()
     @State private var boxEntity: Entity?
-    @State private var cubeEntities: [ModelEntity] = []
+    @State private var toyEntities: [Entity] = []
 
     // MARK: - Pickup State
 
     @State private var placedCount = 0
-    @State private var heldCubeIndex: Int?
-    @State private var isPinching = false
-
-    // MARK: - Tracking State
-
-    @State private var trackingError: String?
+    @State private var encouragementText: String = ""
+    @State private var showEncouragement: Bool = false
 
     // MARK: - Audio
 
     @State private var chimePlayer = ChimeSoundPlayer()
     @State private var speechSynthesizer = AVSpeechSynthesizer()
 
-    // MARK: - ARKit (declared as `let` — not @State)
-
-    private let arSession = ARKitSession()
-    private let handTracking = HandTrackingProvider()
+    /// Pick the best available English voice: premium > enhanced > default.
+    private var bestVoice: AVSpeechSynthesisVoice? {
+        let english = AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix("en") }
+        return english.first(where: { $0.quality == .premium })
+            ?? english.first(where: { $0.quality == .enhanced })
+            ?? AVSpeechSynthesisVoice(language: "en-US")
+    }
 
     // MARK: - Constants
 
-    private let cubeSize: Float = 0.05
-    private let cubeColors: [UIColor] = [.systemRed, .systemBlue, .systemGreen, .systemYellow, .systemOrange]
+    private let toyNames = ["Toy1", "Toy2", "Toy3", "Toy4", "Toy5"]
 
-    /// Thumb-to-index distance below which a pinch is detected (metres).
-    private let pinchThreshold: Float = 0.025
-    /// Thumb-to-index distance above which a pinch is released (metres) — hysteresis.
-    private let releaseThreshold: Float = 0.04
-    /// Max distance from pinch midpoint to cube center to pick it up (metres).
-    private let grabRadius: Float = 0.08
-    /// Max distance from cube to box opening to count as placed (metres).
+    /// Max distance from toy to box interior to count as placed (metres).
     private let dropZoneRadius: Float = 0.15
 
     /// Box placement position.
@@ -135,13 +127,13 @@ struct ObjectPickupSceneView: View {
                 rootEntity.addChild(box)
                 boxEntity = box
             } catch {
-                trackingError = "Failed to load box model: \(error.localizedDescription)"
+                // Non-fatal: scene still works without a box model
             }
 
             guard boxEntity != nil else { return }
 
-            // Spawn cubes
-            spawnCubes()
+            // Spawn toys
+            await spawnToys()
 
             sceneState = .active
 
@@ -149,6 +141,15 @@ struct ObjectPickupSceneView: View {
                 panel.position = [0, 1.5, -1.2]
                 content.add(panel)
             }
+
+            if let encouragement = attachments.entity(for: "encouragement"),
+               let box = boxEntity {
+                // Attach above the box — position relative to box entity
+                let boxBounds = box.visualBounds(relativeTo: box)
+                encouragement.position = SIMD3<Float>(0, boxBounds.max.y + 0.15, 0)
+                box.addChild(encouragement)
+            }
+
         } attachments: {
             Attachment(id: "controls") {
                 SceneControlPanel(
@@ -161,39 +162,53 @@ struct ObjectPickupSceneView: View {
                     onReturn: { await dismissImmersiveSpace() }
                 )
             }
+
+            Attachment(id: "encouragement") {
+                if showEncouragement {
+                    Text(encouragementText)
+                        .font(.system(size: 48, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 32)
+                        .padding(.vertical, 16)
+                        .background(.ultraThinMaterial, in: .capsule)
+                        .transition(.scale.combined(with: .opacity))
+                        .animation(.easeOut(duration: 0.3), value: showEncouragement)
+                }
+            }
         }
         .task {
-            await runHandTracking()
+            // Periodically check if any toy has been moved near the box
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                if sceneState == .active {
+                    checkToysInBox()
+                }
+            }
         }
     }
 
     // MARK: - Instruction Text
 
     private var instructionText: String {
-        if let error = trackingError { return error }
         switch sceneState {
         case .setup:
             return "Setting up…"
         case .active:
-            return "Pinch objects with your right hand and place them in the box. (\(placedCount)/5)"
+            return "Pick up the toys and place them in the box. (\(placedCount)/5)"
         case .complete:
-            return "All objects collected! Check the main window."
+            return "All toys collected! Check the main window."
         }
     }
 
-    // MARK: - Cube Spawning
+    // MARK: - Toy Spawning
 
-    private func spawnCubes() {
-        let mesh = MeshResource.generateBox(size: cubeSize)
+    private func spawnToys() async {
         var positions: [SIMD3<Float>] = []
 
-        for i in 0..<5 {
-            let material = SimpleMaterial(
-                color: cubeColors[i],
-                roughness: 0.3,
-                isMetallic: false
-            )
-            let cube = ModelEntity(mesh: mesh, materials: [material])
+        for name in toyNames {
+            guard let toy = try? await Entity(named: name, in: realityKitContentBundle) else {
+                continue
+            }
 
             // Generate random floor position with minimum spacing
             var position: SIMD3<Float>
@@ -201,170 +216,119 @@ struct ObjectPickupSceneView: View {
             repeat {
                 position = SIMD3<Float>(
                     Float.random(in: -0.75...0.75),
-                    cubeSize / 2.0, // half height so cube sits on floor
+                    0,
                     Float.random(in: -1.5...(-0.5))
                 )
                 attempts += 1
             } while positions.contains(where: { simd_distance($0, position) < 0.3 }) && attempts < 50
 
             positions.append(position)
-            cube.position = position
-            rootEntity.addChild(cube)
-            cubeEntities.append(cube)
+            toy.position = position
+
+            // Lift so the visual base sits on the floor
+            let bounds = toy.visualBounds(relativeTo: nil)
+            let boundsHeight = bounds.max.y - bounds.min.y
+            if boundsHeight > 0.01 {
+                toy.position.y += -bounds.min.y
+            }
+
+            // Collision (required for ManipulationComponent)
+            let localBounds = toy.visualBounds(relativeTo: toy)
+            let size = localBounds.max - localBounds.min
+            if size.x > 0.001 {
+                let shape = ShapeResource.generateBox(size: size)
+                toy.components.set(CollisionComponent(shapes: [shape]))
+            }
+
+            // Enable native pinch-to-grab
+            ManipulationComponent.configureEntity(toy)
+
+            rootEntity.addChild(toy)
+            toyEntities.append(toy)
         }
     }
 
-    // MARK: - Hand Tracking
+    // MARK: - Box Detection
 
-    private func runHandTracking() async {
-        let auth = await arSession.requestAuthorization(for: [.handTracking])
-        guard auth[.handTracking] == .allowed else {
-            trackingError = "Hand tracking permission was denied. Please enable it in Settings."
-            return
-        }
-
-        do {
-            try await arSession.run([handTracking])
-        } catch {
-            trackingError = "Hand tracking unavailable: \(error.localizedDescription)"
-            return
-        }
-
-        for await update in handTracking.anchorUpdates {
-            let anchor = update.anchor
-            guard anchor.chirality == .right, anchor.isTracked else { continue }
-            guard let skeleton = anchor.handSkeleton else { continue }
-            guard sceneState == .active else { continue }
-
-            let thumbTip = skeleton.joint(.thumbTip)
-            let indexTip = skeleton.joint(.indexFingerTip)
-            guard thumbTip.isTracked, indexTip.isTracked else { continue }
-
-            let thumbWorld = anchor.originFromAnchorTransform * thumbTip.anchorFromJointTransform
-            let indexWorld = anchor.originFromAnchorTransform * indexTip.anchorFromJointTransform
-
-            let thumbPos = SIMD3<Float>(thumbWorld.columns.3.x, thumbWorld.columns.3.y, thumbWorld.columns.3.z)
-            let indexPos = SIMD3<Float>(indexWorld.columns.3.x, indexWorld.columns.3.y, indexWorld.columns.3.z)
-
-            let pinchDistance = simd_distance(thumbPos, indexPos)
-            let pinchMidpoint = (thumbPos + indexPos) / 2.0
-
-            // Pinch state with hysteresis
-            let wasPinching = isPinching
-            if pinchDistance < pinchThreshold {
-                isPinching = true
-            } else if pinchDistance > releaseThreshold {
-                isPinching = false
-            }
-
-            if isPinching {
-                if heldCubeIndex == nil && !wasPinching {
-                    // Just started pinching — try to grab nearest unplaced cube
-                    tryGrabCube(near: pinchMidpoint)
-                }
-
-                // Move held cube to pinch midpoint
-                if let idx = heldCubeIndex {
-                    cubeEntities[idx].position = pinchMidpoint
-                }
-            } else if wasPinching && !isPinching {
-                // Just released — check if cube is near box
-                if let idx = heldCubeIndex {
-                    releaseCube(index: idx)
-                }
-            }
-        }
-    }
-
-    // MARK: - Grab / Release
-
-    private func tryGrabCube(near point: SIMD3<Float>) {
-        var closestIndex: Int?
-        var closestDist: Float = grabRadius
-
-        for (i, cube) in cubeEntities.enumerated() {
-            guard cube.isEnabled else { continue } // skip placed cubes
-            let dist = simd_distance(cube.position, point)
-            if dist < closestDist {
-                closestDist = dist
-                closestIndex = i
-            }
-        }
-
-        heldCubeIndex = closestIndex
-    }
-
-    private func releaseCube(index: Int) {
-        let cube = cubeEntities[index]
+    private func checkToysInBox() {
         let boxOpeningPos = boxDropZoneCenter()
 
-        if simd_distance(cube.position, boxOpeningPos) < dropZoneRadius {
-            // Placed in box — animate to box center, then disable
-            placedCount += 1
-            heldCubeIndex = nil
+        for toy in toyEntities {
+            guard toy.isEnabled else { continue }
 
-            cube.isEnabled = false  // disable immediately to prevent re-pickup
-
-            cube.move(
-                to: Transform(translation: boxOpeningPos),
-                relativeTo: rootEntity,
-                duration: 0.2,
-                timingFunction: .easeOut
-            )
-
-            // Play chime and speak encouragement
-            let count = placedCount
-            let player = chimePlayer
-            let synth = speechSynthesizer
-            let phrase = encouragements[count - 1]
-            let audioPos = boxOpeningPos
-
-            Task {
-                try? await Task.sleep(nanoseconds: 200_000_000) // wait for snap animation
-
-                player.play(at: audioPos)
-                let utterance = AVSpeechUtterance(string: phrase)
-                utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
-                synth.speak(utterance)
-
-                if count >= 5 {
-                    try? await Task.sleep(nanoseconds: 1_500_000_000) // let speech finish
-                    guard sceneState == .active else { return } // cancelled by reset
-                    sceneState = .complete
-                    appModel.showCongratulations = true
-                }
+            let toyWorldPos = toy.position(relativeTo: nil)
+            if simd_distance(toyWorldPos, boxOpeningPos) < dropZoneRadius {
+                placeToyInBox(toy, at: boxOpeningPos)
             }
-        } else {
-            // Dropped outside box — cube stays where it is, still pickable
-            heldCubeIndex = nil
         }
     }
 
-    /// Center of the box drop zone — box position raised to the opening height.
+    // MARK: - Placement
+
+    private func placeToyInBox(_ toy: Entity, at boxOpeningPos: SIMD3<Float>) {
+        placedCount += 1
+        toy.isEnabled = false
+
+        toy.move(
+            to: Transform(translation: boxOpeningPos),
+            relativeTo: rootEntity,
+            duration: 0.2,
+            timingFunction: .easeOut
+        )
+
+        let count = placedCount
+        let player = chimePlayer
+        let synth = speechSynthesizer
+        let voice = bestVoice
+        let phrase = encouragements[count - 1]
+        let audioPos = boxOpeningPos
+
+        encouragementText = phrase
+        showEncouragement = true
+
+        Task {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+
+            player.play(at: audioPos)
+            let utterance = AVSpeechUtterance(string: phrase)
+            utterance.voice = voice
+            utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
+            synth.speak(utterance)
+
+            if count >= 5 {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                guard sceneState == .active else { return }
+                sceneState = .complete
+                appModel.showCongratulations = true
+            } else {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                showEncouragement = false
+            }
+        }
+    }
+
+    /// Center of the box interior — midpoint between bottom and top of the box.
     private func boxDropZoneCenter() -> SIMD3<Float> {
         guard let box = boxEntity else { return boxPosition }
         let bounds = box.visualBounds(relativeTo: nil)
-        let openingY = bounds.max.y
-        return SIMD3<Float>(boxPosition.x, openingY, boxPosition.z)
+        let interiorY = (bounds.min.y + bounds.max.y) / 2.0
+        return SIMD3<Float>(boxPosition.x, interiorY, boxPosition.z)
     }
 
     // MARK: - Reset
 
     private func resetScene() {
         speechSynthesizer.stopSpeaking(at: .immediate)
+        showEncouragement = false
 
-        // Remove all cubes
-        for cube in cubeEntities {
-            cube.removeFromParent()
+        for toy in toyEntities {
+            toy.removeFromParent()
         }
-        cubeEntities.removeAll()
+        toyEntities.removeAll()
 
-        // Respawn cubes at new random positions
-        spawnCubes()
+        Task { await spawnToys() }
 
         placedCount = 0
-        heldCubeIndex = nil
-        isPinching = false
         sceneState = .active
         appModel.showCongratulations = false
     }

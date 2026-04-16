@@ -29,7 +29,9 @@
       "Bash(git tag:*)",
       "Bash(/Users/donchia/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh:*)",
       "Bash(git:*)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(swift:*)",
+      "WebFetch(domain:stepinto.vision)"
     ]
   }
 }

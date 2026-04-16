@@ -11,14 +11,14 @@ def Xform "Root"
     def "Stright__1_" (
         active = true
         customData = {
-            float3 rotationEulerHint = (-1.2217302, 1.5707963, 0)
+            float3 rotationEulerHint = (-9.07571, 3.1415927, -3.1415925)
         }
         prepend references = @Stright (1).usdz@
     )
     {
-        quatf xformOp:orient = (0.579228, -0.4055797, 0.579228, 0.40557975)
+        quatf xformOp:orient = (0.9848076, 0.17364907, -2.993717e-8, 8.194135e-8)
         float3 xformOp:scale = (0.1, 0.1, 0.1)
-        float3 xformOp:translate = (-0.1, -0.5, 0)
+        float3 xformOp:translate = (0, 0.08630684, 0)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
 
         over "_materials"
